@@ -15,8 +15,8 @@ except Exception as e:
 def generate_purpose_with_ai(keywords):
     """AI를 사용하여 품의 목적 문장을 생성하는 함수"""
     # --- THIS IS THE FIX ---
-    # 이전 모델 이름 'gemini-pro'를 최신 모델 'gemini-1.5-flash-latest'로 변경했습니다.
-    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+    # 최신 모델 대신 가장 안정적인 표준 모델 'gemini-1.0-pro'로 변경했습니다.
+    model = genai.GenerativeModel('gemini-1.0-pro')
     # ---------------------
     prompt = f"""
     당신은 한국 기업의 유능한 사원입니다. 다음 핵심 키워드를 바탕으로, 상급자에게 정중하게 보고하는 '품의 목적' 문장을 완성해주세요.
@@ -113,6 +113,7 @@ if doc_type == '품의서':
         if st.button("2. 수정된 내용으로 최종 PDF 생성", type="primary", use_container_width=True):
             pdf_output = generate_pdf(edited_html)
             st.download_button(label="📥 PDF 파일 다운로드", data=pdf_output, file_name=f"{p_data['title']}.pdf", mime="application/pdf", use_container_width=True)
+
 
 # ==============================================================================
 # --- 공지문, 공문, 이메일도 동일하게 2단계 방식으로 수정됩니다. ---
@@ -222,5 +223,6 @@ elif doc_type == '비즈니스 이메일':
         st.subheader("📋 복사할 HTML 코드")
         st.info("이메일 클라이언트가 HTML 붙여넣기를 지원하는 경우, 아래 코드를 복사해서 사용하세요.")
         st.code(html_output, language='html')
+
 
 
