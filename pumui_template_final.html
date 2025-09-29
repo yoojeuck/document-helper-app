@@ -10,11 +10,9 @@
         .content { margin-bottom: 30px; }
         .content h2 { font-size: 14pt; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 15px; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 10pt; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; word-break: keep-all; }
         th { background-color: #f2f2f2; font-weight: bold; }
-        td:nth-child(3) { text-align: left; padding-left: 10px; }
-        td:nth-child(4), td:nth-child(5), td:nth-child(6) { text-align: right; padding-right: 10px; }
-        .total-row td { font-weight: bold; background-color: #f9f9f9; }
+        .body-text { white-space: pre-wrap; font-size: 11pt; padding: 10px; }
         .centered-text { text-align: center; margin: 20px 0; font-size: 12pt; }
         .end-mark { text-align: right; margin-top: 40px; font-size: 12pt; }
         .remarks { white-space: pre-wrap; background-color: #fafafa; border: 1px solid #eee; padding: 15px; border-radius: 5px; font-size: 10pt; }
@@ -26,38 +24,28 @@
     <div class="centered-text">- 아 래 -</div>
     <div class="content">
         <h2>1. 상세 내역</h2>
-        <p style="text-align: right; font-size: 9pt; color: #555;">(단위: 원, 부가세 포함)</p>
-        <table>
-            <thead>
-                <tr>
-                    <th>No</th>
-                    <th>거래처</th>
-                    <th>품목</th>
-                    <th>단가</th>
-                    <th>수량</th>
-                    <th>합계</th>
-                    <th>비고</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in items %}
-                <tr>
-                    <td>{{ item.No }}</td>
-                    <td>{{ item.거래처 }}</td>
-                    <td>{{ item.품목 }}</td>
-                    <td>{{ "{:,.0f}".format(item.단가|float) }}</td>
-                    <td>{{ item.수량 }}</td>
-                    <td>{{ "{:,.0f}".format(item.합계|float) }}</td>
-                    <td>{{ item.비고 }}</td>
-                </tr>
-                {% endfor %}
-                <tr class="total-row">
-                    <td colspan="5">총 합계</td>
-                    <td>{{ total_sum }}</td>
-                    <td></td>
-                </tr>
-            </tbody>
-        </table>
+        {% if items %}
+            <table>
+                <thead>
+                    <tr>
+                        {% for header in table_headers %}
+                            <th>{{ header }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in items %}
+                    <tr>
+                        {% for header in table_headers %}
+                            <td>{{ row.get(header, '') }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% elif body %}
+            <div class="body-text">{{ body|safe }}</div>
+        {% endif %}
     </div>
     <div class="content">
         <h2>2. 비고</h2>
