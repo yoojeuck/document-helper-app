@@ -29,9 +29,8 @@
     <br><br>
     <div class="body-title">제 목: {{ title }}</div>
     <div class="content">
-        <p>{{ body|safe }}</p>
+        {{ body|safe }}
     </div>
-    <div class="end-mark">끝.</div>
     <div class="footer">
         <p class="sender-name">{{ sender_name }} <span class="seal-space">(인)</span></p>
     </div>
