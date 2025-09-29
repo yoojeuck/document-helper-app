@@ -4,3 +4,4 @@ jinja2
 weasyprint
 openai
 markdown
+python-docx
