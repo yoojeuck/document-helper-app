@@ -4,54 +4,32 @@ from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
 from datetime import datetime
 import streamlit.components.v1 as components
-import requests
-import json
+from openai import OpenAI
 
-# --- AI 설정 (직접 통신 방식) ---
+# --- AI 설정 (OpenAI GPT-4o mini 사용) ---
+try:
+    # Streamlit Secrets에서 API 키를 가져옵니다.
+    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+except Exception as e:
+    st.error("⚠️ AI 기능을 사용하려면 Streamlit Secrets에 OPENAI_API_KEY를 등록해야 합니다.")
+
 def generate_purpose_with_ai(keywords):
-    """AI 서버와 직접 통신하여 품의 목적 문장을 생성하는 함수"""
+    """OpenAI AI를 사용하여 품의 목적 문장을 생성하는 함수"""
     try:
-        # Streamlit Secrets에서 API 키를 가져옵니다.
-        api_key = st.secrets["GOOGLE_API_KEY"]
-        
-        # AI 서버의 최신 주소(v1)를 직접 호출합니다.
-        url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent?key={api_key}"
-        
-        headers = {"Content-Type": "application/json"}
-        
-        prompt = f"""
-        당신은 한국 기업의 유능한 사원입니다. 다음 핵심 키워드를 바탕으로, 상급자에게 정중하게 보고하는 '품의 목적' 문장을 완성해주세요.
-        문장은 "ㅇㅇ하고자 아래와 같이 품의하오니 검토 후 재가 바랍니다." 와 같은 형식으로, 격식 있고 간결하게 작성해주세요.
+        system_prompt = "당신은 한국 기업의 유능한 사원입니다. 보고서 작성의 전문가로서, 상급자에게 정중하고 논리적으로 보고하는 문장을 생성합니다."
+        user_prompt = f"다음 핵심 키워드를 바탕으로, '품의 목적' 문장을 완성해주세요. 문장은 'ㅇㅇ하고자 아래와 같이 품의하오니 검토 후 재가 바랍니다.' 와 같은 형식으로, 격식 있고 간결하게 작성해주세요.\n\n핵심 키워드: {keywords}"
 
-        핵심 키워드: {keywords}
-
-        완성된 문장:
-        """
-        
-        data = {
-            "contents": [
-                {
-                    "parts": [
-                        {
-                            "text": prompt
-                        }
-                    ]
-                }
-            ]
-        }
-        
-        # '전화 걸기' (HTTP POST 요청)
-        response = requests.post(url, headers=headers, data=json.dumps(data))
-        
-        # 응답 확인
-        if response.status_code == 200:
-            result = response.json()
-            return result['candidates'][0]['content']['parts'][0]['text'].strip()
-        else:
-            return f"AI 서버 응답 오류가 발생했습니다. 상태 코드: {response.status_code}, 응답 내용: {response.text}"
-
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",  # OpenAI의 최신 고효율 모델
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.7,
+        )
+        return response.choices[0].message.content.strip()
     except Exception as e:
-        return f"AI 생성 중 오류가 발생했습니다. API 키와 Google Cloud 설정을 다시 확인해주세요. 오류 상세: {e}"
+        return f"AI 생성 중 오류가 발생했습니다. OpenAI API 키와 계정 설정을 확인해주세요. 오류 상세: {e}"
 
 
 # --- 기본 앱 설정 ---
@@ -72,7 +50,7 @@ doc_type = st.sidebar.radio(
     label_visibility="collapsed"
 )
 
-st.title("✍️ AI 문서 작성 도우미 v3.0 (직접 통신)")
+st.title("✍️ AI 문서 작성 도우미 v4.0 (OpenAI 탑재)")
 st.markdown(f"**'{doc_type}'** 작성을 시작합니다. 아래 양식에 내용을 입력하거나 AI의 도움을 받아 문서를 완성하세요.")
 st.divider()
 
@@ -94,7 +72,7 @@ if doc_type == '품의서':
     p_data = st.session_state.pumui_data
 
     with st.container(border=True):
-        st.subheader("✨ AI로 목적 자동 생성")
+        st.subheader("✨ AI로 목적 자동 생성 (GPT-4o mini)")
         st.info("핵심 단어만 입력하고 버튼을 누르면, AI가 격식에 맞는 품의 목적을 자동으로 작성해줍니다.")
         keywords = st.text_input("핵심 키워드", placeholder="예: 영업팀 노트북 교체, 마케팅 캠페인 예산 증액")
         if st.button("AI로 문장 생성하기", use_container_width=True):
@@ -136,7 +114,7 @@ if doc_type == '품의서':
             pdf_output = generate_pdf(edited_html)
             st.download_button(label="📥 PDF 파일 다운로드", data=pdf_output, file_name=f"{p_data['title']}.pdf", mime="application/pdf", use_container_width=True)
 
-
+# 여기에 이전 답변의 '공지문', '공문', '비즈니스 이메일' 파트 코드를 그대로 붙여넣어주세요.
 # ==============================================================================
 # --- 공지문, 공문, 이메일도 동일하게 2단계 방식으로 수정됩니다. ---
 # ==============================================================================
@@ -245,6 +223,7 @@ elif doc_type == '비즈니스 이메일':
         st.subheader("📋 복사할 HTML 코드")
         st.info("이메일 클라이언트가 HTML 붙여넣기를 지원하는 경우, 아래 코드를 복사해서 사용하세요.")
         st.code(html_output, language='html')
+
 
 
 
