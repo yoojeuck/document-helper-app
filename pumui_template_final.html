@@ -12,15 +12,16 @@
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 10pt; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: center; word-break: keep-all; }
         th { background-color: #f2f2f2; font-weight: bold; }
-        .body-text { white-space: pre-wrap; font-size: 11pt; padding: 10px; }
+        .body-text { font-size: 11pt; padding: 10px; }
+        .body-text p, .body-text ul, .body-text ol { margin-top: 0; margin-bottom: 10px; }
         .centered-text { text-align: center; margin: 20px 0; font-size: 12pt; }
         .end-mark { text-align: right; margin-top: 40px; font-size: 12pt; }
-        .remarks { white-space: pre-wrap; background-color: #fafafa; border: 1px solid #eee; padding: 15px; border-radius: 5px; font-size: 10pt; }
+        .remarks { background-color: #fafafa; border: 1px solid #eee; padding: 15px; border-radius: 5px; font-size: 10pt; }
     </style>
 </head>
 <body>
     <h1>품 의 서</h1>
-    <div class="content"><p>{{ purpose|safe }}</p></div>
+    <div class="content">{{ purpose|safe }}</div>
     <div class="centered-text">- 아 래 -</div>
     <div class="content">
         <h2>1. 상세 내역</h2>
@@ -51,9 +52,7 @@
         <h2>2. 비고</h2>
         <div class="remarks">{{ remarks|safe }}</div>
     </div>
-    <div class="end-mark">끝.</div>
-    <br><br><br>
-    <div style="text-align: center;">
+    <div style="text-align: center; margin-top: 50px;">
         <p>{{ generation_date }}</p>
         <p>상기 내용과 같이 품의하오니 재가하여 주시기 바랍니다.</p>
         <br><br>
