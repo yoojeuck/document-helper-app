@@ -7,7 +7,6 @@ import streamlit.components.v1 as components
 import google.generativeai as genai
 
 # --- AI 설정 ---
-# Streamlit Secrets에서 API 키를 가져와 설정합니다.
 try:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 except Exception as e:
@@ -15,7 +14,10 @@ except Exception as e:
 
 def generate_purpose_with_ai(keywords):
     """AI를 사용하여 품의 목적 문장을 생성하는 함수"""
-    model = genai.GenerativeModel('gemini-pro')
+    # --- THIS IS THE FIX ---
+    # 이전 모델 이름 'gemini-pro'를 최신 모델 'gemini-1.5-flash-latest'로 변경했습니다.
+    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+    # ---------------------
     prompt = f"""
     당신은 한국 기업의 유능한 사원입니다. 다음 핵심 키워드를 바탕으로, 상급자에게 정중하게 보고하는 '품의 목적' 문장을 완성해주세요.
     문장은 "ㅇㅇ하고자 아래와 같이 품의하오니 검토 후 재가 바랍니다." 와 같은 형식으로, 격식 있고 간결하게 작성해주세요.
@@ -69,7 +71,6 @@ if doc_type == '품의서':
         }
     p_data = st.session_state.pumui_data
 
-    # --- ✨ NEW AI FEATURE SECTION ---
     with st.container(border=True):
         st.subheader("✨ AI로 목적 자동 생성")
         st.info("핵심 단어만 입력하고 버튼을 누르면, AI가 격식에 맞는 품의 목적을 자동으로 작성해줍니다.")
@@ -81,7 +82,6 @@ if doc_type == '품의서':
                     p_data["purpose"] = generated_purpose
             else:
                 st.warning("핵심 키워드를 입력해주세요.")
-    # ----------------------------
     
     with st.container(border=True):
         st.subheader("1. 기본 정보")
@@ -113,8 +113,6 @@ if doc_type == '품의서':
         if st.button("2. 수정된 내용으로 최종 PDF 생성", type="primary", use_container_width=True):
             pdf_output = generate_pdf(edited_html)
             st.download_button(label="📥 PDF 파일 다운로드", data=pdf_output, file_name=f"{p_data['title']}.pdf", mime="application/pdf", use_container_width=True)
-
-    # ----------------------------
 
 # ==============================================================================
 # --- 공지문, 공문, 이메일도 동일하게 2단계 방식으로 수정됩니다. ---
@@ -224,4 +222,5 @@ elif doc_type == '비즈니스 이메일':
         st.subheader("📋 복사할 HTML 코드")
         st.info("이메일 클라이언트가 HTML 붙여넣기를 지원하는 경우, 아래 코드를 복사해서 사용하세요.")
         st.code(html_output, language='html')
+
 
