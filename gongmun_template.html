@@ -8,7 +8,6 @@
         body { font-family: 'Noto Sans KR', sans-serif; margin: 50px; font-size: 12pt; line-height: 1.7; }
         .header { text-align: center; }
         .header h1 { font-size: 28pt; letter-spacing: 10px; margin-bottom: 50px; }
-        .meta-info { width: 100%; margin-bottom: 20px; font-size: 11pt; }
         .body-title { font-weight: bold; font-size: 14pt; margin-bottom: 20px; border-bottom: 1px solid #000; padding-bottom: 5px; }
         .content { margin-top: 20px; min-height: 200px; }
         .footer { text-align: center; margin-top: 50px; }
@@ -21,14 +20,14 @@
         <h1>공 식 문 서</h1>
         <p style="text-align: left;"><strong>발신:</strong> {{ sender_org }}</p>
         <hr>
-        <p style="text-align: left;"><strong>수신:</strong> {{ receiver }}</p>
+        <p style.text-align: left;"><strong>수신:</strong> {{ receiver }}</p>
         <p style="text-align: left;"><strong>참조:</strong> {{ cc }}</p>
         <p style="text-align: left;"><strong>시행일자:</strong> {{ generation_date }}</p>
     </div>
     <br><br>
     <div class="body-title">제 목: {{ title }}</div>
     <div class="content">
-        {{ body|safe }}
+        <p>{{ body|safe }}</p>
     </div>
     <div class="footer">
         <p class="sender-name">{{ sender_name }} <span class="seal-space">(인)</span></p>
