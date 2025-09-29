@@ -2,3 +2,4 @@ streamlit
 pandas
 jinja2
 weasyprint
+requests
