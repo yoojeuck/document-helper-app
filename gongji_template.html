@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }}</title>
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; margin: 40px; font-size: 11pt; line-height: 1.8; }
+        .container { border: 1px solid #ddd; padding: 20px 30px; }
+        h1 { text-align: center; font-size: 22pt; margin-bottom: 30px; }
+        .info-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        .info-table td { border: 1px solid #ddd; padding: 10px; }
+        .info-table .header { background-color: #f2f2f2; font-weight: bold; width: 100px; text-align: center; }
+        .content { margin-top: 30px; padding-top: 30px; border-top: 2px solid #333; }
+        .date { text-align: center; margin-top: 40px; font-size: 12pt; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>{{ title }}</h1>
+        <table class="info-table">
+            <tr>
+                <td class="header">대상</td>
+                <td>{{ target }}</td>
+            </tr>
+            <tr>
+                <td class="header">핵심 요약</td>
+                <td>{{ summary|safe }}</td>
+            </tr>
+        </table>
+        <div class="content">
+            <p>{{ details|safe }}</p>
+            <br><br>
+            <p><strong>문의:</strong> {{ contact }}</p>
+        </div>
+        <div class="date">{{ generation_date }}</div>
+    </div>
+</body>
+</html>
