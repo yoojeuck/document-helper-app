@@ -15,8 +15,8 @@ except Exception as e:
 def generate_purpose_with_ai(keywords):
     """AI를 사용하여 품의 목적 문장을 생성하는 함수"""
     # --- THIS IS THE FIX ---
-    # 최신 모델 대신 가장 안정적인 표준 모델 'gemini-1.0-pro'로 변경했습니다.
-    model = genai.GenerativeModel('gemini-1.0-pro')
+    # 최신 라이브러리와 호환되는 최신/최고 속도 모델 이름으로 변경합니다.
+    model = genai.GenerativeModel('gemini-1.5-flash-latest')
     # ---------------------
     prompt = f"""
     당신은 한국 기업의 유능한 사원입니다. 다음 핵심 키워드를 바탕으로, 상급자에게 정중하게 보고하는 '품의 목적' 문장을 완성해주세요.
@@ -50,7 +50,7 @@ doc_type = st.sidebar.radio(
     label_visibility="collapsed"
 )
 
-st.title("✍️ AI 문서 작성 도우미 v2.0")
+st.title("✍️ AI 문서 작성 도우미 v2.1")
 st.markdown(f"**'{doc_type}'** 작성을 시작합니다. 아래 양식에 내용을 입력하거나 AI의 도움을 받아 문서를 완성하세요.")
 st.divider()
 
@@ -223,6 +223,7 @@ elif doc_type == '비즈니스 이메일':
         st.subheader("📋 복사할 HTML 코드")
         st.info("이메일 클라이언트가 HTML 붙여넣기를 지원하는 경우, 아래 코드를 복사해서 사용하세요.")
         st.code(html_output, language='html')
+
 
 
 
