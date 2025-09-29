@@ -9,15 +9,13 @@ import google.generativeai as genai
 # --- AI 설정 ---
 try:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+    # 가장 빠르고 효율적인 최신 모델을 사용합니다.
+    model = genai.GenerativeModel('gemini-1.5-flash-latest')
 except Exception as e:
-    st.error("⚠️ AI 기능을 사용하려면 Streamlit Secrets에 GOOGLE_API_KEY를 등록해야 합니다.")
+    st.error("⚠️ AI 기능을 사용하려면 Google Cloud에서 'Vertex AI API'를 활성화하고, Streamlit Secrets에 GOOGLE_API_KEY를 등록해야 합니다.")
 
 def generate_purpose_with_ai(keywords):
     """AI를 사용하여 품의 목적 문장을 생성하는 함수"""
-    # --- THIS IS THE FIX ---
-    # 최신 라이브러리와 호환되는 최신/최고 속도 모델 이름으로 변경합니다.
-    model = genai.GenerativeModel('gemini-1.5-flash-latest')
-    # ---------------------
     prompt = f"""
     당신은 한국 기업의 유능한 사원입니다. 다음 핵심 키워드를 바탕으로, 상급자에게 정중하게 보고하는 '품의 목적' 문장을 완성해주세요.
     문장은 "ㅇㅇ하고자 아래와 같이 품의하오니 검토 후 재가 바랍니다." 와 같은 형식으로, 격식 있고 간결하게 작성해주세요.
@@ -30,9 +28,9 @@ def generate_purpose_with_ai(keywords):
         response = model.generate_content(prompt)
         return response.text.strip()
     except Exception as e:
-        return f"AI 생성 중 오류가 발생했습니다: {e}"
+        return f"AI 생성 중 오류가 발생했습니다. Google Cloud 프로젝트에서 'Vertex AI API'가 활성화되었는지 확인해주세요. 오류 상세: {e}"
 
-# --- 기본 앱 설정 (이전과 동일) ---
+# --- 기본 앱 설정 ---
 st.set_page_config(page_title="문서 작성 도우미", layout="wide")
 env = Environment(loader=FileSystemLoader('.'))
 
@@ -114,6 +112,7 @@ if doc_type == '품의서':
             pdf_output = generate_pdf(edited_html)
             st.download_button(label="📥 PDF 파일 다운로드", data=pdf_output, file_name=f"{p_data['title']}.pdf", mime="application/pdf", use_container_width=True)
 
+# ... (이하 공지문, 공문, 비즈니스 이메일 코드는 이전 답변과 동일합니다) ...
 
 # ==============================================================================
 # --- 공지문, 공문, 이메일도 동일하게 2단계 방식으로 수정됩니다. ---
@@ -223,6 +222,7 @@ elif doc_type == '비즈니스 이메일':
         st.subheader("📋 복사할 HTML 코드")
         st.info("이메일 클라이언트가 HTML 붙여넣기를 지원하는 경우, 아래 코드를 복사해서 사용하세요.")
         st.code(html_output, language='html')
+
 
 
 
