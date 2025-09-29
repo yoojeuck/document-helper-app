@@ -57,27 +57,29 @@ def generate_ai_draft(doc_type, context_keywords):
 
             ### 문서 작성 규칙 (반드시 준수)
             1.  **종결어미:** 모든 문장의 종결어미는 `...함.`, `...요청함.`과 같이 명사형으로 간결하게 종결해야 합니다. 절대로 `...합니다.`와 같은 경어체를 사용하지 마세요.
-            2.  **번호 매기기:** 본문 항목 구분 시 `1.`, `  1)`, `    (1)` 의 위계질서와 들여쓰기를 마크다운 문법에 맞춰 완벽하게 준수합니다. `#` 기호는 사용하지 마세요.
-            3.  **내용:** 결론을 먼저 제시하고, 이유나 상세 설명을 뒤에 붙이는 두괄식 구성을 선호합니다.
+            2.  **번호 매기기 상세 규칙:** 본문 항목 구분 시 `1. 첫째 수준`, `  1) 둘째 수준`, `    (1) 셋째 수준` 의 위계질서와 들여쓰기를 일반 텍스트 형식으로 완벽하게 준수합니다. `#` 과 같은 마크다운 제목 기호는 절대로 사용하지 마세요.
+            3.  **가독성:** 의미 단위로 명확하게 줄을 바꾸고(`\\n` 사용), 문장은 간결하게 작성합니다.
             4.  **종결 표시:** 본문이 끝나면 "**끝.**" 표시를 사용합니다.
             5.  **출력 형식:** 키워드를 분석하여 'items'(표) 또는 'body'(줄글) 중 하나를 선택하여 품의서 초안 전체를 JSON 형식으로 생성합니다. "title", "purpose", "remarks"는 항상 포함되어야 합니다.
             """,
             "user": f"다음 정보를 바탕으로 품의서 초안을 JSON 형식으로 생성해주세요:\n{context_keywords}"
         },
-        "공지문": { "system": "당신은 한국 기업의 사내 커뮤니케이션 담당자입니다. 사용자의 키워드를 바탕으로, `1.`, `  1)` 등 마크다운 형식의 번호 매기기와 줄바꿈을 명확히 사용한 '사내 공지문' 초안을 생성합니다. 응답은 'title', 'target', 'summary', 'details', 'contact' key를 포함하는 JSON 형식이어야 합니다.", "user": f"핵심 키워드: '{context_keywords}'" },
-        "공문": { "system": "당신은 대외 문서를 담당하는 총무팀 직원입니다. 사용자의 키워드를 바탕으로, '- 아 래 -' 형식과 `1.`, `  1)` 등 마크다운 형식의 번호 매기기를 사용하여 격식에 맞는 '공문' 초안을 생성합니다. 응답은 'sender_org', 'receiver', 'cc', 'title', 'body', 'sender_name' key를 포함하는 JSON 형식이어야 합니다.", "user": f"핵심 키워드: '{context_keywords}'" },
-        "비즈니스 이메일": { "system": "당신은 비즈니스 커뮤니케이션 전문가입니다. 사용자의 키워드를 바탕으로, 줄바꿈과 가독성을 고려한 전문적인 '비즈니스 이메일' 초안을 생성합니다. 응답은 'to', 'cc', 'subject', 'intro', 'body', 'closing' key를 포함하는 JSON 형식이어야 합니다.", "user": f"핵심 키워드: '{context_keywords}'" }
+        "공지문": { "system": "당신은 한국 기업의 사내 커뮤니케이션 담당자입니다. 사용자의 키워드를 바탕으로, `1.`, `  1)` 등 일반 텍스트 형식의 번호 매기기와 줄바꿈을 명확히 사용한 '사내 공지문' 초안을 생성합니다. 응답은 'title', 'target', 'summary', 'details', 'contact' key를 포함하는 JSON 형식이어야 합니다. `#` 기호는 사용하지 마세요.", "user": f"핵심 키워드: '{context_keywords}'" },
+        "공문": { "system": "당신은 대외 문서를 담당하는 총무팀 직원입니다. 사용자의 키워드를 바탕으로, '- 아 래 -' 형식과 `1.`, `  1)` 등 일반 텍스트 형식의 번호 매기기를 사용하여 격식에 맞는 '공문' 초안을 생성합니다. 응답은 'sender_org', 'receiver', 'cc', 'title', 'body', 'sender_name' key를 포함하는 JSON 형식이어야 합니다. `#` 기호는 사용하지 마세요.", "user": f"핵심 키워드: '{context_keywords}'" },
+        "비즈니스 이메일": { "system": "당신은 비즈니스 커뮤니케이션 전문가입니다. 사용자의 키워드를 바탕으로, 줄바꿈과 가독성을 고려한 전문적인 '비즈니스 이메일' 초안을 생성합니다. 응답은 'to', 'cc', 'subject', 'intro', 'body', 'closing' key를 포함하는 JSON 형식이어야 합니다. `#` 기호는 사용하지 마세요.", "user": f"핵심 키워드: '{context_keywords}'" }
     }
     return get_ai_response(prompts[doc_type]["system"], prompts[doc_type]["user"])
 
 # --- 텍스트 및 문서 변환 함수들 ---
 def clean_text(text):
+    """AI가 생성한 텍스트에서 불필요한 마크다운 기호를 제거하고 정리합니다."""
     if not isinstance(text, str): return ""
     text = re.sub(r'^\s*#+\s*', '', text, flags=re.MULTILINE)
     text = re.sub(r'^\s*\*\s*', '  - ', text, flags=re.MULTILINE)
     return text
 
 def text_to_html(text):
+    """정리된 텍스트를 HTML 형식으로 변환합니다."""
     return clean_text(text).replace('\n', '<br>')
 
 def generate_pdf(html_content):
@@ -150,7 +152,8 @@ def generate_html(template, context): return template.render(context)
 def clear_all_state():
     """모든 세션 상태를 초기화하는 함수"""
     for key in list(st.session_state.keys()):
-        del st.session_state[key]
+        if key != 'doc_type_selector':
+            del st.session_state[key]
 
 # --- 앱 UI 시작 ---
 st.sidebar.title("📑 문서 종류 선택")
@@ -174,24 +177,31 @@ if not st.session_state.clarifying_questions:
 
     keywords = st.text_input("핵심 키워드", placeholder="예: 영업팀 태블릿 5대 구매", key="keyword_input")
     
-    if st.button("AI 초안 생성 시작", type="primary", use_container_width=True):
-        if keywords:
-            full_keywords = f"유형: {sub_type} / 내용: {keywords}" if sub_type != "선택 안함" else keywords
-            st.session_state.current_keywords = full_keywords
-            with st.spinner("AI가 키워드를 분석 중입니다..."):
-                analysis = analyze_keywords(full_keywords, doc_type)
-                if analysis and analysis.get("status") == "incomplete":
-                    st.session_state.clarifying_questions = analysis.get("questions", [])
-                    st.rerun()
-                else:
-                    with st.spinner(f"AI가 {doc_type} 전체를 작성 중입니다..."):
-                        ai_result = generate_ai_draft(doc_type, full_keywords)
-                        if ai_result:
-                            st.session_state[draft_key] = ai_result
-                            st.session_state[html_key] = ""
-                            st.success("AI가 문서 초안을 모두 작성했습니다. 아래 내용을 확인하고 수정하세요.")
-        else:
-            st.warning("핵심 키워드를 입력해주세요.")
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        if st.button(f"AI로 {doc_type} 전체 생성하기", type="primary", use_container_width=True):
+            if keywords:
+                full_keywords = f"유형: {sub_type} / 내용: {keywords}" if sub_type != "선택 안함" else keywords
+                st.session_state.current_keywords = full_keywords
+                with st.spinner("AI가 키워드를 분석 중입니다..."):
+                    analysis = analyze_keywords(full_keywords, doc_type)
+                    if analysis and analysis.get("status") == "incomplete":
+                        st.session_state.clarifying_questions = analysis.get("questions", [])
+                        st.rerun()
+                    else:
+                        with st.spinner(f"AI가 {doc_type} 전체를 작성 중입니다..."):
+                            ai_result = generate_ai_draft(doc_type, full_keywords)
+                            if ai_result:
+                                st.session_state[draft_key] = ai_result
+                                st.session_state[html_key] = ""
+                                st.success("AI가 문서 초안을 모두 작성했습니다. 아래 내용을 확인하고 수정하세요.")
+            else:
+                st.warning("핵심 키워드를 입력해주세요.")
+    with col2:
+        if st.button("새 문서 작성 (양식 초기화)"):
+            clear_all_state()
+            st.rerun()
+
 else:
     st.subheader("AI의 추가 질문 🙋‍♂️")
     st.info("문서의 완성도를 높이기 위해 몇 가지 추가 정보가 필요합니다.")
@@ -278,21 +288,25 @@ if draft:
                 context["body"] = text_to_html(p_data["body_edited"])
             template = load_template('pumui_template_final.html')
             st.session_state[html_key] = generate_html(template, context)
+        
         elif doc_type == '공지문':
             context = { "title": g_data["title"], "target": g_data["target"], "summary": text_to_html(g_data["summary"]), "details": text_to_html(g_data["details"]), "contact": g_data["contact"] }
             context["generation_date"] = datetime.now().strftime('%Y. %m. %d.')
             template = load_template('gongji_template.html')
             st.session_state[html_key] = generate_html(template, context)
+
         elif doc_type == '공문':
             context = { "sender_org": gm_data["sender_org"], "receiver": gm_data["receiver"], "cc": gm_data["cc"], "title": gm_data["title"], "body": text_to_html(gm_data["body"]), "sender_name": gm_data["sender_name"] }
             context["generation_date"] = datetime.now().strftime('%Y. %m. %d.')
             template = load_template('gongmun_template.html')
             st.session_state[html_key] = generate_html(template, context)
+
         elif doc_type == '비즈니스 이메일':
             e_data["signature_company"] = "주식회사 몬쉘코리아"
             context = { "to": e_data["to"], "cc": e_data["cc"], "subject": e_data["subject"], "intro": text_to_html(e_data["intro"]), "body": text_to_html(e_data["body"]), "closing": text_to_html(e_data["closing"]), "signature_name": e_data["signature_name"], "signature_title": e_data["signature_title"], "signature_team": e_data["signature_team"], "signature_company": e_data["signature_company"] }
             template = load_template('email_template_final.html')
             st.session_state[html_key] = generate_html(template, context)
+        
         st.rerun()
 
 if st.session_state[html_key]:
