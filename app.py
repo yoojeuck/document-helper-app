@@ -167,9 +167,9 @@ if not st.session_state.clarifying_questions:
     
     sub_type = ""
     if doc_type == "품의서":
-        sub_type = st.selectbox("품의서 세부 유형을 선택하세요:", ["선택 안함", "비용 집행", "신규 사업/계약", "인사/정책 변경", "결과/사건 보고"])
+        sub_type = st.selectbox("품의서 세부 유형을 선택하세요:", ["선택 안함", "비용 집행", "신규 사업/계약", "인사/정책 변경", "결과/사건 보고", "신규매장오픈", "제도 시행"])
 
-    keywords = st.text_area("핵심 키워드", placeholder="예: 영업팀 태블릿 5대 구매, 총 예산 400만원, 업무용", height=100, key="keyword_input")
+    keywords = st.text_area("핵심 키워드", placeholder="예: 태블릿 5대 구매, 총 예산 400만원, 업무용, 영업팀", height=100, key="keyword_input")
     
     use_clarifying_questions = st.checkbox("AI에게 추가 질문을 받아 문서 완성도 높이기 (선택 사항)")
 
@@ -337,4 +337,5 @@ if st.session_state.get(html_key):
         with col2:
             docx_output = generate_docx(draft, doc_type)
             st.download_button(label="📄 Word 파일로 다운로드", data=docx_output, file_name=f"{title_for_file}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
+
 
