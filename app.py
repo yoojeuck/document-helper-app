@@ -49,17 +49,10 @@ def generate_ai_draft(doc_type, context_keywords, file_context=""):
     user_prompt = f"다음 정보를 바탕으로 '{doc_type}' 초안을 JSON 형식으로 생성해주세요:\n\n[핵심 키워드]: {context_keywords}\n\n[첨부 파일 내용]:\n{file_context}"
     prompts = {
         "품의서": {
-            "system": """
-            당신은 한국의 '주식회사 몬쉘코리아' 소속의 유능한 사원입니다. 지금부터 제공하는 규칙과 예시를 완벽하게 숙지하고, 사용자의 키워드와 첨부파일 내용을 종합하여 품의서 초안 전체를 생성합니다.
-
-            ### 문서 작성 규칙 (반드시 준수)
-            1.  **종결어미:** 모든 문장의 종결어미는 `...함.`, `...요청함.`과 같이 명사형으로 간결하게 종결해야 합니다. 절대로 `...합니다.`와 같은 경어체를 사용하지 마세요.
-            2.  **번호 매기기:** 본문 항목 구분 시 `1.`, `  1)`, `    (1)` 의 위계질서와 들여쓰기를 일반 텍스트 형식으로 완벽하게 준수합니다. `#` 과 같은 마크다운 제목 기호는 절대로 사용하지 마세요.
-            3.  **출력 형식:** 키워드를 분석하여 'items'(표) 또는 'body'(줄글) 중 하나를 선택하여 `title`, `purpose`, `remarks`와 함께 JSON으로 출력합니다.
-            """,
+            "system": "당신은 한국의 '주식회사 몬쉘코리아' 소속의 유능한 사원입니다. 지금부터 제공하는 규칙과 예시를 완벽하게 숙지하고, 사용자의 키워드와 첨부파일 내용을 종합하여 품의서 초안 전체를 생성합니다. 문장의 종결어미는 `...함.`, `...요청함.`과 같이 명사형으로 간결하게 종결해야 합니다. 본문 항목 구분 시 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하는 마크다운을 사용하고, `#` 기호는 사용하지 마세요. 핵심 내용은 반드시 'body' 또는 'items' 필드에 작성하고, 'remarks' 필드에는 부가적인 참고사항만 간략히 기입합니다. 키워드를 분석하여 'items'(표) 또는 'body'(줄글) 중 하나를 선택하여 `title`, `purpose`, `remarks`와 함께 JSON으로 출력합니다.",
             "user": user_prompt
         },
-        "공지문": { "system": "당신은 한국 기업의 사내 커뮤니케이션 담당자입니다. 키워드와 첨부파일 내용을 바탕으로, `1.`, `  1)` 등 일반 텍스트 형식의 번호 매기기를 사용한 '사내 공지문' 초안을 생성합니다. 응답은 'title', 'target', 'summary', 'details', 'contact' key를 포함하는 JSON 형식이어야 합니다.", "user": user_prompt },
+        "공지문": { "system": "당신은 한국 기업의 사내 커뮤니케이션 담당자입니다. 키워드와 첨부파일 내용을 바탕으로, `1.`, `  1)` 등 마크다운 형식의 번호 매기기와 줄바꿈을 명확히 사용한 '사내 공지문' 초안을 생성합니다. 응답은 'title', 'target', 'summary', 'details', 'contact' key를 포함하는 JSON 형식이어야 합니다.", "user": user_prompt },
         "공문": { "system": "당신은 대외 문서를 담당하는 총무팀 직원입니다. 키워드와 첨부파일 내용을 바탕으로 격식에 맞는 '공문' 초안을 생성합니다. 응답은 'sender_org', 'receiver', 'cc', 'title', 'body', 'sender_name' key를 포함하는 JSON 형식이어야 합니다.", "user": user_prompt },
         "비즈니스 이메일": { "system": "당신은 비즈니스 커뮤니케이션 전문가입니다. 키워드와 첨부파일 내용을 바탕으로 전문적인 '비즈니스 이메일' 초안을 생성합니다. 응답은 `subject`, `body`, `closing` key를 포함하는 JSON 형식이어야 합니다. `closing`에는 서명 정보를 포함하지 마세요.", "user": user_prompt }
     }
@@ -99,20 +92,19 @@ def read_uploaded_file(uploaded_file):
 
 def renumber_text(text):
     lines = text.split('\n')
-    new_lines = []
-    counters = [0, 0, 0]
+    new_lines = []; counters = [0, 0, 0]
     for line in lines:
         stripped_line = line.lstrip()
-        indent_level = len(line) - len(stripped_line)
+        indentation = len(line) - len(stripped_line)
         match = re.match(r'^(\d+\.|\d+\)|\(\d+\)|\-|\*)\s+', stripped_line)
         if match:
-            level = indent_level // 2
+            level = indentation // 2
             if level > 2: level = 2
             for i in range(level + 1, len(counters)): counters[i] = 0
             counters[level] += 1
             if level == 0: new_prefix = f"{counters[level]}. "
-            elif level == 1: new_prefix = f"  {counters[level]}) "
-            else: new_prefix = f"    ({counters[level]}) "
+            elif level == 1: new_prefix = f"{'  ' * level}{counters[level]}) "
+            else: new_prefix = f"{'  ' * level}({counters[level]}) "
             content_part = stripped_line[len(match.group(1)):].lstrip()
             new_lines.append("  " * level + new_prefix + content_part)
         else:
@@ -204,14 +196,13 @@ if "current_keywords" not in st.session_state: st.session_state.current_keywords
 st.title(f"✍️ AI {doc_type} 자동 생성")
 
 if not st.session_state.clarifying_questions:
-    st.markdown("핵심 키워드를 입력하고, 필요시 참고 파일을 업로드하여 문서 초안을 생성하세요.")
+    st.markdown("핵심 키워드나 내용을 자유롭게 입력하고, 필요시 참고 파일을 업로드하여 문서 초안을 생성하세요.")
     sub_type = ""
     if doc_type == "품의서":
         sub_type = st.selectbox("품의서 세부 유형을 선택하세요:", ["선택 안함", "비용 집행", "신규 사업/계약", "인사/정책 변경", "결과/사건 보고"])
-    keywords = st.text_area("핵심 키워드", placeholder="예: 영업팀 태블릿 5대 구매, 총 예산 400만원, 업무용", height=100)
+    keywords = st.text_area("핵심 키워드", placeholder="예: 영업팀 태블릿 5대 구매, 총 예산 400만원, 업무용", height=100, key="keyword_input")
     uploaded_files = st.file_uploader("참고 파일 업로드 (선택 사항)", type=['pdf', 'docx', 'pptx', 'xlsx', 'xls', 'txt'], accept_multiple_files=True)
     use_clarifying_questions = st.checkbox("AI에게 추가 질문을 받아 문서 완성도 높이기 (선택 사항)")
-
     if st.button("AI 초안 생성 시작", type="primary", use_container_width=True):
         if keywords:
             full_keywords = f"유형: {sub_type} / 내용: {keywords}" if sub_type != "선택 안함" else keywords
@@ -264,20 +255,22 @@ draft = st.session_state.get(draft_key, {})
 
 if draft:
     preview_button = False; signature_data = {}
+    st.markdown("---")
+    st.subheader("📄 AI 생성 초안 검토 및 수정")
     if doc_type == '품의서':
         p_data = draft
         p_data["title"] = st.text_input("제목", value=p_data.get("title", ""), help="결재자가 제목만 보고도 내용을 파악할 수 있도록 작성합니다.")
         p_data["purpose"] = st.text_area("목적 및 개요", value=p_data.get("purpose", ""), height=100, help="이 품의를 올리는 이유와 목표를 명확하고 간결하게 기술합니다. (Why)")
         if "items" in p_data and p_data["items"]:
             p_data["df"] = pd.DataFrame(p_data.get("items", []))
-            st.subheader("상세 내역 (표)")
+            st.markdown("**상세 내역 (표)**")
             p_data["df_edited"] = st.data_editor(p_data["df"], num_rows="dynamic")
             p_data["body_edited"] = ""
         else:
-            st.subheader("상세 내용 (줄글)")
+            st.markdown("**상세 내용 (줄글)**")
             p_data["body_edited"] = st.text_area("내용", value=p_data.get("body", ""), height=200, help="핵심 내용을 체계적으로, 번호 매기기 규칙에 맞춰 작성합니다.")
             p_data["df_edited"] = pd.DataFrame()
-        p_data["remarks"] = st.text_area("비고 및 참고사항", value=p_data.get("remarks", ""), height=150, help="예상 비용(How much), 소요 기간(How long), 기대 효과 등 의사결정에 필요한 추가 정보를 기입합니다.")
+        p_data["remarks"] = st.text_area("비고", value=p_data.get("remarks", ""), height=150, help="예상 비용(How much), 소요 기간(How long), 기대 효과 등 의사결정에 필요한 추가 정보를 기입합니다.")
         preview_button = st.button("미리보기 생성", use_container_width=True)
     elif doc_type == '공지문':
         g_data = draft
@@ -315,28 +308,32 @@ if draft:
     
     if preview_button:
         if doc_type == '품의서':
-            context = { "title": p_data["title"], "purpose": text_to_html(p_data["purpose"]), "remarks": text_to_html(p_data["remarks"]), "generation_date": datetime.now().strftime('%Y-%m-%d') }
-            if not p_data["df_edited"].empty:
+            draft['title'] = p_data["title"]; draft['purpose'] = p_data["purpose"]; draft['remarks'] = p_data["remarks"]
+            if not p_data["df_edited"].empty: draft['items'] = p_data["df_edited"].to_dict('records')
+            else: draft['body'] = p_data["body_edited"]
+            context = { "title": draft["title"], "purpose": text_to_html(draft["purpose"]), "remarks": text_to_html(draft["remarks"]), "generation_date": datetime.now().strftime('%Y-%m-%d') }
+            if "items" in draft and draft["items"]:
                 context["table_headers"] = list(p_data["df_edited"].columns); context["items"] = p_data["df_edited"].to_dict('records')
-            else:
-                context["body"] = text_to_html(p_data["body_edited"])
+            elif "body" in draft: context["body"] = text_to_html(draft["body"])
             template = load_template('pumui_template_final.html')
             st.session_state[html_key] = generate_html(template, context)
         elif doc_type == '공지문':
-            context = { "title": g_data["title"], "target": g_data["target"], "summary": text_to_html(g_data["summary"]), "details": text_to_html(g_data["details"]), "contact": g_data["contact"], "generation_date": datetime.now().strftime('%Y. %m. %d.') }
+            draft = g_data
+            context = { "title": draft["title"], "target": draft["target"], "summary": text_to_html(draft["summary"]), "details": text_to_html(draft["details"]), "contact": draft["contact"], "generation_date": datetime.now().strftime('%Y. %m. %d.') }
             template = load_template('gongji_template.html')
             st.session_state[html_key] = generate_html(template, context)
         elif doc_type == '공문':
-            context = { "sender_org": gm_data["sender_org"], "receiver": gm_data["receiver"], "cc": gm_data["cc"], "title": gm_data["title"], "body": text_to_html(gm_data["body"]), "sender_name": gm_data["sender_name"], "generation_date": datetime.now().strftime('%Y. %m. %d.') }
+            draft = gm_data
+            context = { "sender_org": draft["sender_org"], "receiver": draft["receiver"], "cc": draft["cc"], "title": draft["title"], "body": text_to_html(draft["body"]), "sender_name": draft["sender_name"], "generation_date": datetime.now().strftime('%Y. %m. %d.') }
             template = load_template('gongmun_template.html')
             st.session_state[html_key] = generate_html(template, context)
         elif doc_type == '비즈니스 이메일':
-            context = {**e_data, **signature_data, "signature_company": "주식회사 몬쉘코리아"}
-            for key, value in context.items():
-                if isinstance(value, str): context[key] = text_to_html(value)
+            draft = {**e_data, **signature_data}
+            context = draft.copy()
+            context["signature_company"] = "주식회사 몬쉘코리아"
             template = load_template('email_template_v2.html')
             st.session_state[html_key] = generate_html(template, context)
-    
+
 if st.session_state.get(html_key):
     st.divider()
     st.subheader("📄 최종 미리보기")
