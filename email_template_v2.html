@@ -11,13 +11,17 @@
     </style>
 </head>
 <body>
-    <p>{{ intro|safe }}</p>
+    <p>안녕하세요, {{ recipient_name }} {{ recipient_title }}님.<br>
+    {{ signature_name }} {{ signature_title }}입니다.</p>
+    
     <p>{{ body|safe }}</p>
+    
     <p>{{ closing|safe }}</p>
 
     <div class="signature">
         <p><strong>{{ signature_name }}</strong> {{ signature_title }}</p>
         <p>{{ signature_team }} | {{ signature_company }}</p>
+        <p>M. {{ signature_phone }}</p>
     </div>
 </body>
 </html>
