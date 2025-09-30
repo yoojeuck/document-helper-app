@@ -45,11 +45,11 @@ def generate_ai_draft(doc_type, context_keywords):
     """최종 키워드를 바탕으로 AI 초안을 생성하는 함수"""
     prompts = {
         "품의서": {
-            "system": "당신은 한국 기업의 유능한 사원입니다. 제공된 규칙에 따라 사용자의 키워드를 바탕으로 품의서 초안 전체를 생성합니다. 문장의 종결어미는 `...함.`과 같이 명사형으로 간결하게 종결해야 합니다. 본문 항목 구분 시 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하고, `#` 기호는 사용하지 마세요. 키워드를 분석하여 'items'(표) 또는 'body'(줄글) 중 하나를 선택하여 `title`, `purpose`, `remarks`와 함께 JSON으로 출력합니다.",
+            "system": "당신은 한국 기업의 유능한 사원입니다. 제공된 규칙에 따라 사용자의 키워드를 바탕으로 품의서 초안 전체를 생성합니다. 문장의 종결어미는 `...함` 이나 `...임` 같이 명사형으로 간결하게 종결해야 합니다. '입니다.', '합니다' 방식의 종결 어미는 절대로 사용하지 않습니다. 본문 항목 구분 시 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하고, `#`, '*' 기호는 사용하지 마세요. 키워드를 분석하여 'items'(표) 또는 'body'(줄글) 중 하나를 선택하여 `title`, `purpose`, `remarks`와 함께 JSON으로 출력합니다.",
             "user": f"다음 정보를 바탕으로 품의서 초안을 JSON 형식으로 생성해주세요:\n{context_keywords}"
         },
         "공지문": { "system": "당신은 한국 기업의 사내 커뮤니케이션 담당자입니다. 사용자의 키워드를 바탕으로, `1.`, `  1)` 등 마크다운 형식의 번호 매기기를 사용한 '사내 공지문' 초안을 생성합니다. 응답은 'title', 'target', 'summary', 'details', 'contact' key를 포함하는 JSON 형식이어야 합니다.", "user": f"핵심 키워드: '{context_keywords}'" },
-        "공문": { "system": "당신은 대외 문서를 담당하는 총무팀 직원입니다. 사용자의 키워드를 바탕으로 격식에 맞는 '공문' 초안을 생성합니다. 응답은 'sender_org', 'receiver', 'cc', 'title', 'body', 'sender_name' key를 포함하는 JSON 형식이어야 합니다.", "user": f"핵심 키워드: '{context_keywords}'" },
+        "공문": { "system": "당신은 대외 문서를 담당하는 직원입니다. 사용자의 키워드를 바탕으로 격식에 맞는 '공문' 초안을 생성합니다. 응답은 'sender_org', 'receiver', 'cc', 'title', 'body', 'sender_name' key를 포함하는 JSON 형식이어야 합니다.", "user": f"핵심 키워드: '{context_keywords}'" },
         "비즈니스 이메일": {
             "system": "당신은 비즈니스 커뮤니케이션 전문가입니다. 사용자의 키워드를 바탕으로 전문적인 '비즈니스 이메일' 초안을 생성합니다. 응답은 `subject`, `body`, `closing` key를 포함하는 JSON 형식이어야 합니다. `body`는 인사말 바로 뒤에 이어질 자연스러운 본문으로 시작하고, `closing`은 끝인사와 행동 요청 사항을 포함합니다. `closing`에는 발신자 이름, 직책 등 서명 정보를 절대로 포함하지 마세요.",
             "user": f"핵심 키워드: '{context_keywords}'"
@@ -337,3 +337,4 @@ if st.session_state.get(html_key):
         with col2:
             docx_output = generate_docx(draft, doc_type)
             st.download_button(label="📄 Word 파일로 다운로드", data=docx_output, file_name=f"{title_for_file}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
+
