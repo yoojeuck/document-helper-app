@@ -45,30 +45,25 @@ def generate_ai_draft(doc_type, context_keywords):
     """최종 키워드를 바탕으로 AI 초안을 생성하는 함수"""
     prompts = {
         "품의서": {
-            "system": "당신은 한국 기업의 유능한 사원입니다. 제공된 규칙에 따라 사용자의 키워드를 바탕으로 품의서 초안 전체를 생성합니다. 문장의 종결어미는 `...함` 이나 `...임` 같이 명사형으로 간결하게 종결해야 합니다. '입니다.', '합니다' 방식의 종결 어미는 절대로 사용하지 않습니다. 본문 항목 구분 시 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하고, `#`, '*' 기호는 사용하지 마세요. 키워드를 분석하여 'items'(표) 또는 'body'(줄글) 중 하나를 선택하여 `title`, `purpose`, `remarks`와 함께 JSON으로 출력합니다.",
+            "system": "당신은 한국 기업의 유능한 사원입니다. 제공된 규칙에 따라 사용자의 키워드를 바탕으로 품의서 초안 전체를 생성합니다. 문장의 종결어미는 `...함.`과 같이 명사형으로 간결하게 종결해야 합니다. 본문 항목 구분 시 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하고, `#` 기호는 사용하지 마세요. 키워드를 분석하여 'items'(표) 또는 'body'(줄글) 중 하나를 선택하여 `title`, `purpose`, `remarks`와 함께 JSON으로 출력합니다.",
             "user": f"다음 정보를 바탕으로 품의서 초안을 JSON 형식으로 생성해주세요:\n{context_keywords}"
         },
         "공지문": { "system": "당신은 한국 기업의 사내 커뮤니케이션 담당자입니다. 사용자의 키워드를 바탕으로, `1.`, `  1)` 등 마크다운 형식의 번호 매기기를 사용한 '사내 공지문' 초안을 생성합니다. 응답은 'title', 'target', 'summary', 'details', 'contact' key를 포함하는 JSON 형식이어야 합니다.", "user": f"핵심 키워드: '{context_keywords}'" },
-        "공문": { "system": "당신은 대외 문서를 담당하는 직원입니다. 사용자의 키워드를 바탕으로 격식에 맞는 '공문' 초안을 생성합니다. 응답은 'sender_org', 'receiver', 'cc', 'title', 'body', 'sender_name' key를 포함하는 JSON 형식이어야 합니다.", "user": f"핵심 키워드: '{context_keywords}'" },
-        "비즈니스 이메일": {
-            "system": "당신은 비즈니스 커뮤니케이션 전문가입니다. 사용자의 키워드를 바탕으로 전문적인 '비즈니스 이메일' 초안을 생성합니다. 응답은 `subject`, `body`, `closing` key를 포함하는 JSON 형식이어야 합니다. `body`는 인사말 바로 뒤에 이어질 자연스러운 본문으로 시작하고, `closing`은 끝인사와 행동 요청 사항을 포함합니다. `closing`에는 발신자 이름, 직책 등 서명 정보를 절대로 포함하지 마세요.",
-            "user": f"핵심 키워드: '{context_keywords}'"
-        }
+        "공문": { "system": "당신은 대외 문서를 담당하는 총무팀 직원입니다. 사용자의 키워드를 바탕으로 격식에 맞는 '공문' 초안을 생성합니다. 응답은 'sender_org', 'receiver', 'cc', 'title', 'body', 'sender_name' key를 포함하는 JSON 형식이어야 합니다.", "user": f"핵심 키워드: '{context_keywords}'" },
+        "비즈니스 이메일": { "system": "당신은 비즈니스 커뮤니케이션 전문가입니다. 사용자의 키워드를 바탕으로 전문적인 '비즈니스 이메일' 초안을 생성합니다. 응답은 `subject`, `body`, `closing` key를 포함하는 JSON 형식이어야 합니다. `body`는 인사말 바로 뒤에 이어질 자연스러운 본문으로 시작하고, `closing`은 끝인사와 행동 요청 사항을 포함합니다. `closing`에는 발신자 이름, 직책 등 서명 정보를 절대로 포함하지 마세요.", "user": f"핵심 키워드: '{context_keywords}'" }
     }
     return get_ai_response(prompts[doc_type]["system"], prompts[doc_type]["user"])
 
-# --- 텍스트 및 문서 변환 함수들 ---
 def clean_text(text):
     if not isinstance(text, str): return ""
     text = re.sub(r'^\s*#+\s*', '', text, flags=re.MULTILINE)
-    text = re.sub(r'^\s*\*\s*', '  - ', text, flags=re.MULTILINE)
     return text
 
 def text_to_html(text):
     return clean_text(text).replace('\n', '<br>')
 
 def generate_pdf(html_content):
-    font_css = CSS(string="@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap');")
+    font_css = CSS(string="@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap'); body { font-family: 'Noto Sans KR', sans-serif; }")
     return HTML(string=html_content).write_pdf(stylesheets=[font_css])
 
 def generate_docx(draft_data, doc_type):
@@ -145,13 +140,23 @@ env = Environment(loader=FileSystemLoader('.'))
 def load_template(template_name): return env.get_template(template_name)
 def generate_html(template, context): return template.render(context)
 
-def clear_all_state():
+# --- 상태 관리 ---
+def clear_all_draft_states():
+    """모든 문서 타입의 초안 및 질문 상태를 초기화하는 함수"""
     for key in list(st.session_state.keys()):
-        if key != 'doc_type_selector': del st.session_state[key]
+        if key.startswith('draft_') or key.startswith('html_') or key in ['clarifying_questions', 'current_keywords']:
+            del st.session_state[key]
 
 # --- 앱 UI 시작 ---
 st.sidebar.title("📑 문서 종류 선택")
-doc_type = st.sidebar.radio("작성할 문서의 종류를 선택하세요.", ('품의서', '공지문', '공문', '비즈니스 이메일'), key="doc_type_selector", on_change=clear_all_state)
+doc_type = st.sidebar.radio("작성할 문서의 종류를 선택하세요.", ('품의서', '공지문', '공문', '비즈니스 이메일'), key="doc_type_selector")
+
+# 문서 종류가 변경되었는지 확인하고 상태 초기화
+if 'last_doc_type' not in st.session_state:
+    st.session_state.last_doc_type = doc_type
+if st.session_state.last_doc_type != doc_type:
+    clear_all_draft_states()
+    st.session_state.last_doc_type = doc_type
 
 draft_key = f"draft_{doc_type}"
 html_key = f"html_{doc_type}"
@@ -159,6 +164,7 @@ if draft_key not in st.session_state: st.session_state[draft_key] = {}
 if html_key not in st.session_state: st.session_state[html_key] = ""
 if "clarifying_questions" not in st.session_state: st.session_state.clarifying_questions = None
 if "current_keywords" not in st.session_state: st.session_state.current_keywords = ""
+
 
 st.title(f"✍️ AI {doc_type} 자동 생성")
 
@@ -337,5 +343,6 @@ if st.session_state.get(html_key):
         with col2:
             docx_output = generate_docx(draft, doc_type)
             st.download_button(label="📄 Word 파일로 다운로드", data=docx_output, file_name=f"{title_for_file}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
+
 
 
