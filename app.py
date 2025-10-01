@@ -54,6 +54,19 @@ def get_learning_enhanced_prompt(base_prompt, doc_type):
     
     return base_prompt + enhancement
 
+def reset_learning_data():
+    """학습 데이터를 초기화합니다."""
+    global learned_documents, learning_status
+    try:
+        if os.path.exists('learned_documents.json'):
+            os.remove('learned_documents.json')
+        learned_documents = {}
+        learning_status = {"manual": False, "samples": False}
+        return True
+    except Exception as e:
+        st.sidebar.error(f"❌ 초기화 중 오류: {str(e)}")
+        return False
+
 # 앱 시작 시 학습된 문서 로드
 load_learned_documents()
 
@@ -465,16 +478,9 @@ if st.sidebar.button("📚 PDF 문서 학습하기", use_container_width=True):
 # 학습 상태 초기화 버튼
 if learning_status["manual"] or learning_status["samples"]:
     if st.sidebar.button("🗑️ 학습 데이터 초기화", use_container_width=True):
-        try:
-            global learned_documents, learning_status
-            if os.path.exists('learned_documents.json'):
-                os.remove('learned_documents.json')
-            learned_documents = {}
-            learning_status = {"manual": False, "samples": False}
+        if reset_learning_data():
             st.sidebar.success("✅ 학습 데이터가 초기화되었습니다!")
             st.rerun()
-        except Exception as e:
-            st.sidebar.error(f"❌ 초기화 중 오류: {str(e)}")
 
 # 문서 타입이 변경된 경우에만 상태 초기화
 if st.session_state.previous_doc_type != doc_type:
