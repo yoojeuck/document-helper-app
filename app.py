@@ -466,9 +466,9 @@ if st.sidebar.button("📚 PDF 문서 학습하기", use_container_width=True):
 if learning_status["manual"] or learning_status["samples"]:
     if st.sidebar.button("🗑️ 학습 데이터 초기화", use_container_width=True):
         try:
+            global learned_documents, learning_status
             if os.path.exists('learned_documents.json'):
                 os.remove('learned_documents.json')
-            global learned_documents, learning_status
             learned_documents = {}
             learning_status = {"manual": False, "samples": False}
             st.sidebar.success("✅ 학습 데이터가 초기화되었습니다!")
