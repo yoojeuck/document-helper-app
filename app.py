@@ -149,7 +149,7 @@ def generate_ai_draft(doc_type, context_keywords, file_context=""):
     user_prompt = f"다음 정보를 바탕으로 '{doc_type}' 초안을 JSON 형식으로 생성해주세요:\n\n[핵심 키워드]: {context_keywords}\n\n[첨부 파일 내용]:\n{file_context}"
     # 기본 프롬프트를 학습된 내용으로 강화
     base_prompts = {
-        "품의서": "당신은 한국의 '주식회사 몬쉘코리아' 소속의 유능한 사원입니다. 지금부터 제공하는 규칙과 예시를 완벽하게 숙지하고, 사용자의 키워드와 첨부파일 내용을 종합하여 품의서 초안 전체를 생성합니다. 문장의 종결어미는 `...함.`, `...요청함.`과 같이 명사형으로 간결하게 종결해야 합니다. 본문 항목 구분 시 반드시 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하고, 각 문장의 마침표 후에는 줄바꿈을 해주세요. `#` 기호는 사용하지 마세요. 핵심 내용은 반드시 'body' 또는 'items' 필드에 작성하고, 'remarks' 필드에는 부가적인 참고사항만 간략히 기입합니다. 키워드를 분석하여 'items'(표) 또는 'body'(줄글) 중 하나를 선택하여 `title`, `purpose`, `remarks`와 함께 JSON으로 출력합니다.",
+        "품의서": "당신은 한국의 '주식회사 몬쉘코리아' 소속의 유능한 사원입니다. 지금부터 제공하는 규칙과 예시를 완벽하게 숙지하고, 사용자의 키워드와 첨부파일 내용을 종합하여 품의서 초안 전체를 생성합니다. 문장의 종결어미는 `...함.`, `...요청함.`과 같이 명사형으로 간결하게 종결해야 합니다. 본문 항목 구분 시 반드시 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하고, 각 문장의 마침표 후에는 줄바꿈을 해주세요. `#` 기호는 사용하지 마세요. 상세 내용은 'body'(텍스트 설명)와 'items'(표 데이터) 모두 포함하여 작성하세요. 텍스트로 배경과 목적을 설명하고, 표로 구체적인 항목과 수치를 정리해주세요. 응답은 `title`, `purpose`, `body`, `items`, `remarks` 모든 필드를 포함하는 JSON 형식이어야 합니다.",
         "공지문": "당신은 한국 기업의 사내 커뮤니케이션 담당자입니다. 키워드와 첨부파일 내용을 바탕으로 '사내 공지문' 초안을 생성합니다. 'details' 필드에는 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하는 번호 매기기를 사용하고, 각 문장의 마침표 후에는 줄바꿈을 해주세요. details는 하나의 연속된 텍스트 문자열이어야 하며, JSON 객체가 아닌 일반 문자열로 작성해주세요. 응답은 'title', 'target', 'summary', 'details', 'contact' key를 포함하는 JSON 형식이어야 합니다.",
         "공문": "당신은 대외 문서를 담당하는 총무팀 직원입니다. 키워드와 첨부파일 내용을 바탕으로 격식에 맞는 '공문' 초안을 생성합니다. 본문 작성 시 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하고, 각 문장의 마침표 후에는 줄바꿈을 해주세요. 응답은 'sender_org', 'receiver', 'cc', 'title', 'body', 'sender_name' key를 포함하는 JSON 형식이어야 합니다.",
         "비즈니스 이메일": "당신은 비즈니스 커뮤니케이션 전문가입니다. 키워드와 첨부파일 내용을 바탕으로 전문적인 '비즈니스 이메일' 초안을 생성합니다. 본문 작성 시 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하고, 각 문장의 마침표 후에는 줄바꿈을 해주세요. 응답은 `subject`, `body`, `closing` key를 포함하는 JSON 형식이어야 합니다. `closing`에는 회사명, 연락처, 이메일 주소 등의 서명 정보를 포함하지 마세요. 단순히 인사말이나 마무리 문구만 포함하세요."
@@ -375,17 +375,25 @@ def generate_docx(draft_data, doc_type, signature_data={}):
         doc.add_paragraph(clean_text(draft_data.get('purpose', '')))
         doc.add_paragraph("- 아 래 -").alignment = WD_ALIGN_PARAGRAPH.CENTER
         doc.add_heading("1. 상세 내역", level=2)
+        
+        # 텍스트 내용 먼저 추가
+        if "body" in draft_data and draft_data.get("body"):
+            doc.add_paragraph(clean_text(draft_data.get('body', '')))
+            if "items" in draft_data and draft_data["items"]:
+                doc.add_paragraph("")  # 빈 줄 추가
+        
+        # 표 데이터 추가
         if "items" in draft_data and draft_data["items"]:
             df = pd.DataFrame(draft_data["items"])
             if not df.empty:
                 table = doc.add_table(rows=1, cols=len(df.columns), style='Table Grid')
                 hdr_cells = table.rows[0].cells
-                for i, col_name in enumerate(df.columns): hdr_cells[i].text = col_name
+                for i, col_name in enumerate(df.columns): 
+                    hdr_cells[i].text = col_name
                 for _, row in df.iterrows():
                     row_cells = table.add_row().cells
-                    for i, col_name in enumerate(df.columns): row_cells[i].text = str(row[col_name])
-        elif "body" in draft_data:
-            doc.add_paragraph(clean_text(draft_data.get('body', '')))
+                    for i, col_name in enumerate(df.columns): 
+                        row_cells[i].text = str(row[col_name])
         doc.add_heading("2. 비고", level=2)
         doc.add_paragraph(clean_text(draft_data.get('remarks', '')))
         p_end = doc.add_paragraph("끝."); p_end.alignment = WD_ALIGN_PARAGRAPH.RIGHT
@@ -827,15 +835,24 @@ if draft:
         if purpose_input and len(purpose_input.strip()) < 20:
             st.warning("⚠️ 목적이 너무 짧습니다. 더 상세하게 설명해주세요.")
         p_data["purpose"] = purpose_input
-        if "items" in p_data and p_data["items"]:
+        
+        # 텍스트 내용 편집
+        st.markdown("**상세 설명 (텍스트)**")
+        p_data["body_edited"] = st.text_area("배경 및 설명", value=p_data.get("body", ""), height=150, help="배경, 필요성, 추진 방법 등을 텍스트로 상세히 설명합니다.")
+        
+        # 표 데이터 편집
+        st.markdown("**상세 내역 (표)**")
+        if "items" in p_data and p_data["items"] and len(p_data["items"]) > 0:
+            # AI가 생성한 표가 있는 경우
             p_data["df"] = pd.DataFrame(p_data.get("items", []))
-            st.markdown("**상세 내역 (표)**")
-            p_data["df_edited"] = st.data_editor(p_data["df"], num_rows="dynamic")
-            p_data["body_edited"] = ""
+            p_data["df_edited"] = st.data_editor(p_data["df"], num_rows="dynamic", help="구체적인 항목, 수량, 금액 등을 표로 정리합니다.")
         else:
-            st.markdown("**상세 내용 (줄글)**")
-            p_data["body_edited"] = st.text_area("내용", value=p_data.get("body", ""), height=200, help="핵심 내용을 체계적으로, 번호 매기기 규칙에 맞춰 작성합니다.")
-            p_data["df_edited"] = pd.DataFrame()
+            # 표가 없는 경우 기본 구조 제공
+            default_items = [
+                {"항목": "예시 항목", "수량": "1", "단가": "100,000", "금액": "100,000", "비고": "설명"}
+            ]
+            p_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic", help="구체적인 항목, 수량, 금액 등을 표로 정리합니다.")
+        
         p_data["remarks"] = st.text_area("비고", value=p_data.get("remarks", ""), height=150, help="예상 비용(How much), 소요 기간(How long), 기대 효과 등 의사결정에 필요한 추가 정보를 기입합니다.")
         
         # 품의서 유효성 검사
@@ -898,13 +915,42 @@ if draft:
     
     if preview_button:
         if doc_type == '품의서':
-            draft['title'] = p_data["title"]; draft['purpose'] = p_data["purpose"]; draft['remarks'] = p_data["remarks"]
-            if not p_data["df_edited"].empty: draft['items'] = p_data["df_edited"].to_dict('records')
-            else: draft['body'] = p_data["body_edited"]
-            context = { "title": draft["title"], "purpose": text_to_html(draft["purpose"]), "remarks": text_to_html(draft["remarks"]), "generation_date": datetime.now().strftime('%Y-%m-%d') }
-            if "items" in draft and draft["items"]:
-                context["table_headers"] = list(p_data["df_edited"].columns); context["items"] = p_data["df_edited"].to_dict('records')
-            elif "body" in draft: context["body"] = text_to_html(draft["body"])
+            # 제목, 목적, 비고 업데이트
+            draft['title'] = p_data["title"]
+            draft['purpose'] = p_data["purpose"] 
+            draft['remarks'] = p_data["remarks"]
+            
+            # 텍스트 내용 항상 포함
+            draft['body'] = p_data["body_edited"]
+            
+            # 표 데이터 항상 포함 (비어있지 않은 경우에만)
+            if not p_data["df_edited"].empty:
+                # 빈 행 제거
+                filtered_df = p_data["df_edited"].dropna(how='all')
+                if not filtered_df.empty:
+                    draft['items'] = filtered_df.to_dict('records')
+                else:
+                    draft['items'] = []
+            else:
+                draft['items'] = []
+            
+            # 템플릿 컨텍스트 구성
+            context = { 
+                "title": draft["title"], 
+                "purpose": text_to_html(draft["purpose"]), 
+                "remarks": text_to_html(draft["remarks"]), 
+                "generation_date": datetime.now().strftime('%Y-%m-%d') 
+            }
+            
+            # 텍스트 내용 추가
+            if draft.get("body"):
+                context["body"] = text_to_html(draft["body"])
+            
+            # 표 데이터 추가
+            if draft.get("items"):
+                context["table_headers"] = list(p_data["df_edited"].columns)
+                context["items"] = draft["items"]
+            
             template = load_template('pumui_template_final.html')
             st.session_state[html_key] = generate_html(template, context)
         elif doc_type == '공지문':
