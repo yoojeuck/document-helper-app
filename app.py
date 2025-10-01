@@ -842,12 +842,44 @@ if draft:
         
         # 표 데이터 편집
         st.markdown("**상세 내역 (표)**")
-        if "items" in p_data and p_data["items"] and len(p_data["items"]) > 0:
-            # AI가 생성한 표가 있는 경우
-            p_data["df"] = pd.DataFrame(p_data.get("items", []))
-            p_data["df_edited"] = st.data_editor(p_data["df"], num_rows="dynamic", help="구체적인 항목, 수량, 금액 등을 표로 정리합니다.")
-        else:
-            # 표가 없는 경우 기본 구조 제공
+        try:
+            if "items" in p_data and p_data["items"] and len(p_data["items"]) > 0:
+                # AI가 생성한 표가 있는 경우 - 안전하게 DataFrame 생성
+                items_data = p_data.get("items", [])
+                if isinstance(items_data, list) and len(items_data) > 0:
+                    # 첫 번째 항목이 딕셔너리인지 확인
+                    if isinstance(items_data[0], dict):
+                        try:
+                            p_data["df"] = pd.DataFrame(items_data)
+                            p_data["df_edited"] = st.data_editor(p_data["df"], num_rows="dynamic", help="구체적인 항목, 수량, 금액 등을 표로 정리합니다.")
+                        except Exception as e:
+                            st.warning(f"⚠️ AI 생성 표 데이터에 문제가 있어 기본 형식을 사용합니다: {str(e)}")
+                            # 기본 구조로 대체
+                            default_items = [
+                                {"항목": "노트북", "수량": "10", "단가": "500,000", "금액": "5,000,000", "비고": "마케팅팀용"}
+                            ]
+                            p_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic", help="구체적인 항목, 수량, 금액 등을 표로 정리합니다.")
+                    else:
+                        # 데이터 형식이 올바르지 않은 경우
+                        default_items = [
+                            {"항목": "노트북", "수량": "10", "단가": "500,000", "금액": "5,000,000", "비고": "마케팅팀용"}
+                        ]
+                        p_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic", help="구체적인 항목, 수량, 금액 등을 표로 정리합니다.")
+                else:
+                    # 빈 데이터인 경우
+                    default_items = [
+                        {"항목": "노트북", "수량": "10", "단가": "500,000", "금액": "5,000,000", "비고": "마케팅팀용"}
+                    ]
+                    p_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic", help="구체적인 항목, 수량, 금액 등을 표로 정리합니다.")
+            else:
+                # 표가 없는 경우 기본 구조 제공
+                default_items = [
+                    {"항목": "노트북", "수량": "10", "단가": "500,000", "금액": "5,000,000", "비고": "마케팅팀용"}
+                ]
+                p_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic", help="구체적인 항목, 수량, 금액 등을 표로 정리합니다.")
+        except Exception as e:
+            st.error(f"⚠️ 표 데이터 처리 중 오류가 발생했습니다: {str(e)}")
+            # 최종 fallback
             default_items = [
                 {"항목": "예시 항목", "수량": "1", "단가": "100,000", "금액": "100,000", "비고": "설명"}
             ]
@@ -924,14 +956,18 @@ if draft:
             draft['body'] = p_data["body_edited"]
             
             # 표 데이터 항상 포함 (비어있지 않은 경우에만)
-            if not p_data["df_edited"].empty:
-                # 빈 행 제거
-                filtered_df = p_data["df_edited"].dropna(how='all')
-                if not filtered_df.empty:
-                    draft['items'] = filtered_df.to_dict('records')
+            try:
+                if "df_edited" in p_data and p_data["df_edited"] is not None and not p_data["df_edited"].empty:
+                    # 빈 행 제거
+                    filtered_df = p_data["df_edited"].dropna(how='all')
+                    if not filtered_df.empty:
+                        draft['items'] = filtered_df.to_dict('records')
+                    else:
+                        draft['items'] = []
                 else:
                     draft['items'] = []
-            else:
+            except Exception as e:
+                st.warning(f"⚠️ 표 데이터 처리 중 문제가 발생했습니다: {str(e)}")
                 draft['items'] = []
             
             # 템플릿 컨텍스트 구성
@@ -948,8 +984,15 @@ if draft:
             
             # 표 데이터 추가
             if draft.get("items"):
-                context["table_headers"] = list(p_data["df_edited"].columns)
-                context["items"] = draft["items"]
+                try:
+                    if "df_edited" in p_data and p_data["df_edited"] is not None and not p_data["df_edited"].empty:
+                        context["table_headers"] = list(p_data["df_edited"].columns)
+                        context["items"] = draft["items"]
+                    else:
+                        context["items"] = []
+                except Exception as e:
+                    st.warning(f"⚠️ 표 헤더 처리 중 문제가 발생했습니다: {str(e)}")
+                    context["items"] = []
             
             template = load_template('pumui_template_final.html')
             st.session_state[html_key] = generate_html(template, context)
