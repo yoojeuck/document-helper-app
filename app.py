@@ -18,11 +18,19 @@ import openpyxl
 # --- AI 설정 (OpenAI GPT-4o mini 사용) ---
 try:
     client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-except Exception as e:
+except KeyError:
     st.error("⚠️ AI 기능을 사용하려면 Streamlit Secrets에 OPENAI_API_KEY를 등록해야 합니다.")
+    st.stop()
+except Exception as e:
+    st.error(f"OpenAI 클라이언트 초기화 중 오류가 발생했습니다: {str(e)}")
+    st.stop()
 
 def get_ai_response(system_prompt, user_prompt):
     """OpenAI API를 호출하는 범용 함수"""
+    if not system_prompt or not user_prompt:
+        st.error("프롬프트가 비어있습니다.")
+        return None
+        
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -32,10 +40,34 @@ def get_ai_response(system_prompt, user_prompt):
                 {"role": "user", "content": user_prompt}
             ],
             temperature=0.7,
+            max_tokens=3000,
+            timeout=30
         )
-        return json.loads(response.choices[0].message.content)
+        
+        if not response.choices or not response.choices[0].message.content:
+            st.error("AI로부터 응답을 받지 못했습니다.")
+            return None
+            
+        content = response.choices[0].message.content.strip()
+        if not content:
+            st.error("AI 응답이 비어있습니다.")
+            return None
+            
+        return json.loads(content)
+        
+    except json.JSONDecodeError as e:
+        st.error(f"AI 응답 형식이 올바르지 않습니다: {str(e)}")
+        return None
     except Exception as e:
-        st.error(f"AI 생성 중 오류가 발생했습니다: {e}")
+        error_msg = str(e)
+        if "rate limit" in error_msg.lower():
+            st.error("⚠️ API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.")
+        elif "timeout" in error_msg.lower():
+            st.error("⚠️ AI 응답 시간이 초과되었습니다. 다시 시도해주세요.")
+        elif "insufficient_quota" in error_msg.lower():
+            st.error("⚠️ OpenAI API 할당량이 부족합니다. 계정을 확인해주세요.")
+        else:
+            st.error(f"AI 생성 중 오류가 발생했습니다: {error_msg}")
         return None
 
 def analyze_keywords(keywords, doc_type):
@@ -60,34 +92,96 @@ def generate_ai_draft(doc_type, context_keywords, file_context=""):
 
 # --- 파일 읽기 및 텍스트 처리 함수들 ---
 def read_uploaded_file(uploaded_file):
+    if not uploaded_file:
+        return ""
+        
+    # 파일 크기 제한 (10MB)
+    max_file_size = 10 * 1024 * 1024  # 10MB
+    if hasattr(uploaded_file, 'size') and uploaded_file.size > max_file_size:
+        st.error(f"파일 크기가 너무 큽니다. 10MB 이하의 파일을 업로드해주세요.")
+        return ""
+    
     try:
         file_extension = uploaded_file.name.split('.')[-1].lower()
+        
         if file_extension == "pdf":
-            pdf_reader = PyPDF2.PdfReader(uploaded_file)
-            text = ""
-            for page in pdf_reader.pages:
-                text += page.extract_text() or ""
-            return text
+            try:
+                pdf_reader = PyPDF2.PdfReader(uploaded_file)
+                if len(pdf_reader.pages) > 50:
+                    st.warning("PDF 파일이 너무 깁니다. 처음 50페이지만 처리합니다.")
+                
+                text = ""
+                for i, page in enumerate(pdf_reader.pages[:50]):
+                    page_text = page.extract_text() or ""
+                    text += page_text
+                    
+                if not text.strip():
+                    st.warning("PDF에서 텍스트를 추출할 수 없습니다.")
+                return text
+            except Exception as e:
+                st.error(f"PDF 파일 처리 중 오류: {str(e)}")
+                return ""
+                
         elif file_extension == "docx":
-            doc = Document(uploaded_file)
-            return "\n".join([para.text for para in doc.paragraphs])
+            try:
+                doc = Document(uploaded_file)
+                text = "\n".join([para.text for para in doc.paragraphs if para.text.strip()])
+                if not text.strip():
+                    st.warning("Word 문서에서 텍스트를 찾을 수 없습니다.")
+                return text
+            except Exception as e:
+                st.error(f"Word 파일 처리 중 오류: {str(e)}")
+                return ""
+                
         elif file_extension == "pptx":
-            prs = Presentation(uploaded_file)
-            text = ""
-            for slide in prs.slides:
-                for shape in slide.shapes:
-                    if hasattr(shape, "text"): text += shape.text + "\n"
-            return text
+            try:
+                prs = Presentation(uploaded_file)
+                text = ""
+                for slide in prs.slides:
+                    for shape in slide.shapes:
+                        if hasattr(shape, "text") and shape.text.strip(): 
+                            text += shape.text + "\n"
+                if not text.strip():
+                    st.warning("PowerPoint에서 텍스트를 찾을 수 없습니다.")
+                return text
+            except Exception as e:
+                st.error(f"PowerPoint 파일 처리 중 오류: {str(e)}")
+                return ""
+                
         elif file_extension in ['xlsx', 'xls']:
-            df = pd.read_excel(uploaded_file, engine='openpyxl')
-            return df.to_string()
+            try:
+                df = pd.read_excel(uploaded_file, engine='openpyxl')
+                if df.empty:
+                    st.warning("Excel 파일이 비어있습니다.")
+                    return ""
+                return df.head(100).to_string()  # 첫 100행만 처리
+            except Exception as e:
+                st.error(f"Excel 파일 처리 중 오류: {str(e)}")
+                return ""
+                
         elif file_extension == "txt":
-            return uploaded_file.getvalue().decode("utf-8")
+            try:
+                content = uploaded_file.getvalue()
+                text = content.decode("utf-8")
+                if not text.strip():
+                    st.warning("텍스트 파일이 비어있습니다.")
+                return text
+            except UnicodeDecodeError:
+                try:
+                    text = content.decode("euc-kr")
+                    return text
+                except UnicodeDecodeError:
+                    st.error("텍스트 파일의 인코딩을 인식할 수 없습니다.")
+                    return ""
+            except Exception as e:
+                st.error(f"텍스트 파일 처리 중 오류: {str(e)}")
+                return ""
         else:
             st.warning(f"지원하지 않는 파일 형식입니다: .{file_extension}")
             return ""
+            
     except Exception as e:
-        st.error(f"'{uploaded_file.name}' 파일을 읽는 중 오류가 발생했습니다: {e}")
+        st.error(f"'{uploaded_file.name}' 파일을 읽는 중 예상치 못한 오류가 발생했습니다: {str(e)}")
         return ""
 
 def renumber_text(text):
@@ -117,7 +211,63 @@ def clean_text(text):
     processed_text = renumber_text(processed_text)
     return processed_text
 
-def text_to_html(text): return clean_text(text).replace('\n', '<br>')
+def text_to_html(text): 
+    """텍스트를 HTML 형식으로 변환"""
+    return clean_text(text).replace('\n', '<br>')
+
+def validate_input_length(text, min_length=0, max_length=10000, field_name="입력"):
+    """입력 텍스트 길이 유효성 검사"""
+    if not text:
+        return f"{field_name}을(를) 입력해주세요."
+    
+    text_length = len(text.strip())
+    if text_length < min_length:
+        return f"{field_name}이(가) 너무 짧습니다. 최소 {min_length}자 이상 입력해주세요."
+    elif text_length > max_length:
+        return f"{field_name}이(가) 너무 깁니다. {max_length}자 이하로 입력해주세요."
+    
+    return None
+
+def show_progress_with_status(steps, delay=0.5):
+    """진행률과 상태 메시지를 표시하는 함수"""
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    import time
+    for i, step_message in enumerate(steps):
+        progress = (i + 1) / len(steps)
+        progress_bar.progress(progress)
+        status_text.text(step_message)
+        time.sleep(delay)
+    
+    return progress_bar, status_text
+
+def validate_document_fields(doc_type, data):
+    """문서 유형별 필드 유효성 검사"""
+    errors = []
+    
+    if doc_type == '품의서':
+        if not data.get("title") or len(data["title"].strip()) < 5:
+            errors.append("제목을 5자 이상 입력해주세요.")
+        if not data.get("purpose") or len(data["purpose"].strip()) < 20:
+            errors.append("목적을 20자 이상 입력해주세요.")
+    elif doc_type == '공지문':
+        if not data.get("title") or len(data["title"].strip()) < 5:
+            errors.append("제목을 5자 이상 입력해주세요.")
+        if not data.get("target") or len(data["target"].strip()) < 2:
+            errors.append("대상을 2자 이상 입력해주세요.")
+    elif doc_type == '공문':
+        if not data.get("sender_org") or len(data["sender_org"].strip()) < 3:
+            errors.append("발신 기관명을 3자 이상 입력해주세요.")
+        if not data.get("receiver") or len(data["receiver"].strip()) < 3:
+            errors.append("수신을 3자 이상 입력해주세요.")
+    elif doc_type == '비즈니스 이메일':
+        if not data.get("subject") or len(data["subject"].strip()) < 5:
+            errors.append("제목을 5자 이상 입력해주세요.")
+        if not data.get("body") or len(data["body"].strip()) < 10:
+            errors.append("본문을 10자 이상 입력해주세요.")
+    
+    return errors
 
 def generate_pdf(html_content):
     font_css = CSS(string="@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap'); body { font-family: 'Noto Sans KR', sans-serif; }")
@@ -181,17 +331,41 @@ def load_template(template_name): return env.get_template(template_name)
 def generate_html(template, context): return template.render(context)
 
 def clear_all_state():
-    for key in list(st.session_state.keys()):
-        if key != 'doc_type_selector': del st.session_state[key]
+    """문서 유형 변경 시 관련 상태만 초기화"""
+    keys_to_keep = ['doc_type_selector']
+    keys_to_remove = [key for key in st.session_state.keys() if key not in keys_to_keep]
+    for key in keys_to_remove:
+        del st.session_state[key]
 
 st.sidebar.title("📑 문서 종류 선택")
-doc_type = st.sidebar.radio("작성할 문서의 종류를 선택하세요.", ('품의서', '공지문', '공문', '비즈니스 이메일'), key="doc_type_selector", on_change=clear_all_state)
+# 이전 문서 타입 저장
+if 'previous_doc_type' not in st.session_state:
+    st.session_state.previous_doc_type = None
 
-draft_key = f"draft_{doc_type}"; html_key = f"html_{doc_type}"
-if draft_key not in st.session_state: st.session_state[draft_key] = {}
-if html_key not in st.session_state: st.session_state[html_key] = ""
-if "clarifying_questions" not in st.session_state: st.session_state.clarifying_questions = None
-if "current_keywords" not in st.session_state: st.session_state.current_keywords = ""
+doc_type = st.sidebar.radio("작성할 문서의 종류를 선택하세요.", ('품의서', '공지문', '공문', '비즈니스 이메일'), key="doc_type_selector")
+
+# 문서 타입이 변경된 경우에만 상태 초기화
+if st.session_state.previous_doc_type != doc_type:
+    clear_all_state()
+    st.session_state.previous_doc_type = doc_type
+
+# 세션 상태 초기화 - 키 생성 방식 개선
+draft_key = f"draft_{doc_type.replace(' ', '_')}"
+html_key = f"html_{doc_type.replace(' ', '_')}"
+
+# 필요한 상태만 초기화
+state_defaults = {
+    draft_key: {},
+    html_key: "",
+    "clarifying_questions": None,
+    "current_keywords": "",
+    "file_processing_complete": False,
+    "ai_generation_complete": False
+}
+
+for key, default_value in state_defaults.items():
+    if key not in st.session_state:
+        st.session_state[key] = default_value
 
 st.title(f"✍️ AI {doc_type} 자동 생성")
 
@@ -201,54 +375,169 @@ if not st.session_state.clarifying_questions:
     if doc_type == "품의서":
         sub_type = st.selectbox("품의서 세부 유형을 선택하세요:", ["선택 안함", "비용 집행", "신규 사업/계약", "인사/정책 변경", "결과/사건 보고"])
     keywords = st.text_area("핵심 키워드", placeholder="예: 영업팀 태블릿 5대 구매, 총 예산 400만원, 업무용", height=100, key="keyword_input")
+    
+    # 입력 검증 및 안내
+    if keywords:
+        word_count = len(keywords.split())
+        char_count = len(keywords)
+        
+        if char_count < 10:
+            st.warning("⚠️ 너무 짧습니다. 더 상세한 내용을 입력해주세요. (최소 10자 이상)")
+        elif char_count > 1000:
+            st.warning("⚠️ 너무 깁니다. 1000자 이하로 입력해주세요.")
+        else:
+            st.success(f"✅ 적절한 길이입니다. (단어: {word_count}개, 문자: {char_count}자)")
     uploaded_files = st.file_uploader("참고 파일 업로드 (선택 사항)", type=['pdf', 'docx', 'pptx', 'xlsx', 'xls', 'txt'], accept_multiple_files=True)
+    
+    # 파일 업로드 안내
+    if uploaded_files:
+        if len(uploaded_files) > 5:
+            st.error("⚠️ 최대 5개의 파일만 업로드 할 수 있습니다.")
+            uploaded_files = uploaded_files[:5]
+        
+        total_size = sum(getattr(f, 'size', 0) for f in uploaded_files)
+        if total_size > 50 * 1024 * 1024:  # 50MB 제한
+            st.error("⚠️ 전체 파일 크기가 50MB를 초과합니다.")
+        else:
+            st.info(f"파일 {len(uploaded_files)}개 업로드됨 (전체 크기: {total_size/1024/1024:.1f}MB)")
     use_clarifying_questions = st.checkbox("AI에게 추가 질문을 받아 문서 완성도 높이기 (선택 사항)")
     if st.button("AI 초안 생성 시작", type="primary", use_container_width=True):
-        if keywords:
+        # 입력 유효성 검사
+        validation_errors = []
+        
+        if not keywords or len(keywords.strip()) < 10:
+            validation_errors.append("핵심 키워드를 10자 이상 입력해주세요.")
+        
+        if len(keywords) > 1000:
+            validation_errors.append("키워드는 1000자 이하로 입력해주세요.")
+        
+        if uploaded_files and len(uploaded_files) > 5:
+            validation_errors.append("참고 파일은 최대 5개까지만 업로드 가능합니다.")
+        
+        if validation_errors:
+            for error in validation_errors:
+                st.error(f"⚠️ {error}")
+        else:
             full_keywords = f"유형: {sub_type} / 내용: {keywords}" if sub_type != "선택 안함" else keywords
             st.session_state.current_keywords = full_keywords
             file_context = ""
+            
+            # 파일 처리 진행률 표시
             if uploaded_files:
-                with st.spinner("첨부 파일을 읽는 중입니다..."):
-                    for uploaded_file in uploaded_files:
-                        file_context += f"--- 첨부 파일: {uploaded_file.name} ---\n{read_uploaded_file(uploaded_file)}\n\n"
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                for i, uploaded_file in enumerate(uploaded_files):
+                    progress = (i + 1) / len(uploaded_files)
+                    progress_bar.progress(progress)
+                    status_text.text(f"파일 처리 중: {uploaded_file.name} ({i+1}/{len(uploaded_files)})")
+                    
+                    file_text = read_uploaded_file(uploaded_file)
+                    if file_text:
+                        file_context += f"--- 첨부 파일: {uploaded_file.name} ---\n{file_text}\n\n"
+                
+                progress_bar.empty()
+                status_text.empty()
+                st.success(f"파일 처리 완료: {len(uploaded_files)}개 파일")
             
             analysis_complete = True
             if use_clarifying_questions:
-                with st.spinner("AI가 키워드를 분석 중입니다..."):
+                with st.spinner("🤖 AI가 키워드를 분석하여 추가 질문을 준비 중입니다..."):
                     analysis = analyze_keywords(full_keywords, doc_type)
                     if analysis and analysis.get("status") == "incomplete":
                         st.session_state.clarifying_questions = analysis.get("questions", [])
                         analysis_complete = False
+                        st.info("🔍 문서 품질 향상을 위해 추가 정보가 필요합니다.")
                         st.rerun()
             if analysis_complete:
-                with st.spinner(f"AI가 {doc_type} 전체를 작성 중입니다..."):
-                    ai_result = generate_ai_draft(doc_type, full_keywords, file_context)
-                    if ai_result:
-                        st.session_state[draft_key] = ai_result
-                        st.session_state[html_key] = ""
-                        st.success("AI가 문서 초안을 모두 작성했습니다. 아래 내용을 확인하고 수정하세요.")
-        else:
-            st.warning("핵심 키워드를 입력해주세요.")
+                # AI 생성 진행률 표시
+                steps = [
+                    "🤖 AI가 문서 구조를 분석하고 있습니다...",
+                    f"📝 {doc_type} 컨텐츠를 생성하고 있습니다...",
+                    "✨ 최종 검토 및 포맷팅 중입니다..."
+                ]
+                progress_bar, status_text = show_progress_with_status(steps)
+                
+                ai_result = generate_ai_draft(doc_type, full_keywords, file_context)
+                
+                progress_bar.progress(1.0)
+                status_text.text("✅ 문서 생성 완료!")
+                import time
+                time.sleep(1)
+                
+                progress_bar.empty()
+                status_text.empty()
+                    
+                if ai_result:
+                    st.session_state[draft_key] = ai_result
+                    st.session_state[html_key] = ""
+                    st.success("✨ AI가 문서 초안을 성공적으로 생성했습니다! 아래에서 내용을 확인하고 수정해주세요.")
+                else:
+                    st.error("문서 생성에 실패했습니다. 다시 시도해주세요.")
+        
+    # 추가 도움말 제공
+    with st.expander("효과적인 키워드 작성 팁"):
+        st.markdown("""
+        **좋은 키워드 예시:**
+        - "마케팅팀 노트북 10대 구매, 예산 500만원, 2024년 4분기 지급"
+        - "신입사원 원격근무 제도 도입, 2025년 1월부터 시행"
+        - "고객서비스 운영시간 연장, 평일 21시까지, 인력 증원 필요"
+        
+        **피해야 할 키워드:**
+        - 너무 간단: "노트북 구매"
+        - 너무 모호: "여러 가지 사무용품 구매 관련"
+        - 배경 설명 없이: "예산 승인 요청"
+        """)
 else:
     st.subheader("AI의 추가 질문 🙋‍♂️")
     st.info("문서의 완성도를 높이기 위해 몇 가지 추가 정보가 필요합니다.")
     answers = {}
     for i, q in enumerate(st.session_state.clarifying_questions):
-        answers[q] = st.text_input(q, key=f"q_{i}")
+        answer = st.text_input(q, key=f"q_{i}")
+        answers[q] = answer
+        
+        # 질문별 입력 검증
+        if answer and len(answer.strip()) < 3:
+            st.warning(f"⚠️ 질문 {i+1}: 너무 짧습니다. 더 상세히 답변해주세요.")
+        elif answer and len(answer) > 500:
+            st.warning(f"⚠️ 질문 {i+1}: 너무 깁니다. 500자 이하로 입력해주세요.")
     if st.button("답변 제출하고 문서 생성하기", type="primary", use_container_width=True):
-        combined_info = st.session_state.current_keywords + "\n[추가 정보]\n"
-        for q, a in answers.items():
-            if a: combined_info += f"- {q}: {a}\n"
-        with st.spinner(f"AI가 {doc_type} 전체를 작성 중입니다..."):
+        # 답변 유효성 검사
+        answered_questions = [q for q, a in answers.items() if a.strip()]
+        if len(answered_questions) == 0:
+            st.warning("⚠️ 적어도 하나의 질문에 답변해주세요.")
+        else:
+            combined_info = st.session_state.current_keywords + "\n[추가 정보]\n"
+            for q, a in answers.items():
+                if a: combined_info += f"- {q}: {a}\n"
+            
+            # 진행률 표시
+            steps = [
+                "🔍 추가 정보를 분석하고 있습니다...",
+                f"📝 향상된 {doc_type}를 생성하고 있습니다...",
+                "✨ 최종 검토 중입니다..."
+            ]
+            progress_bar, status_text = show_progress_with_status(steps)
+            
             ai_result = generate_ai_draft(doc_type, combined_info)
+            
+            progress_bar.progress(1.0)
+            status_text.text("✅ 개선된 문서 생성 완료!")
+            import time
+            time.sleep(1)
+            
+            progress_bar.empty()
+            status_text.empty()
+            
             if ai_result:
                 st.session_state[draft_key] = ai_result
                 st.session_state.clarifying_questions = None
                 st.session_state.current_keywords = ""
                 st.session_state[html_key] = ""
-                st.success("AI가 문서 초안을 모두 작성했습니다. 아래 내용을 확인하고 수정하세요.")
+                st.success("✨ 추가 정보를 반영한 개선된 문서가 생성되었습니다!")
                 st.rerun()
+            else:
+                st.error("문서 생성에 실패했습니다. 다시 시도해주세요.")
 
 st.divider()
 draft = st.session_state.get(draft_key, {})
@@ -259,8 +548,17 @@ if draft:
     st.subheader("📄 AI 생성 초안 검토 및 수정")
     if doc_type == '품의서':
         p_data = draft
-        p_data["title"] = st.text_input("제목", value=p_data.get("title", ""), help="결재자가 제목만 보고도 내용을 파악할 수 있도록 작성합니다.")
-        p_data["purpose"] = st.text_area("목적 및 개요", value=p_data.get("purpose", ""), height=100, help="이 품의를 올리는 이유와 목표를 명확하고 간결하게 기술합니다. (Why)")
+        title_input = st.text_input("제목", value=p_data.get("title", ""), help="결재자가 제목만 보고도 내용을 파악할 수 있도록 작성합니다.")
+        if title_input and len(title_input.strip()) < 5:
+            st.warning("⚠️ 제목이 너무 짧습니다. 더 드립적으로 작성해주세요.")
+        elif title_input and len(title_input) > 100:
+            st.warning("⚠️ 제목이 너무 깁니다. 100자 이하로 작성해주세요.")
+        p_data["title"] = title_input
+        
+        purpose_input = st.text_area("목적 및 개요", value=p_data.get("purpose", ""), height=100, help="이 품의를 올리는 이유와 목표를 명확하고 간결하게 기술합니다. (Why)")
+        if purpose_input and len(purpose_input.strip()) < 20:
+            st.warning("⚠️ 목적이 너무 짧습니다. 더 상세하게 설명해주세요.")
+        p_data["purpose"] = purpose_input
         if "items" in p_data and p_data["items"]:
             p_data["df"] = pd.DataFrame(p_data.get("items", []))
             st.markdown("**상세 내역 (표)**")
@@ -271,7 +569,16 @@ if draft:
             p_data["body_edited"] = st.text_area("내용", value=p_data.get("body", ""), height=200, help="핵심 내용을 체계적으로, 번호 매기기 규칙에 맞춰 작성합니다.")
             p_data["df_edited"] = pd.DataFrame()
         p_data["remarks"] = st.text_area("비고", value=p_data.get("remarks", ""), height=150, help="예상 비용(How much), 소요 기간(How long), 기대 효과 등 의사결정에 필요한 추가 정보를 기입합니다.")
-        preview_button = st.button("미리보기 생성", use_container_width=True)
+        
+        # 품의서 유효성 검사
+        validation_errors = validate_document_fields(doc_type, p_data)
+        
+        if validation_errors:
+            for error in validation_errors:
+                st.error(f"⚠️ {error}")
+            preview_button = st.button("미리보기 생성", use_container_width=True, disabled=True)
+        else:
+            preview_button = st.button("미리보기 생성", use_container_width=True)
     elif doc_type == '공지문':
         g_data = draft
         g_data["title"] = st.text_input("제목", value=g_data.get("title", ""), help="공지의 내용을 한눈에 파악할 수 있도록 작성합니다.")
