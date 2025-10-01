@@ -15,6 +15,48 @@ import PyPDF2
 from pptx import Presentation
 import openpyxl
 
+# --- 학습된 문서 관리 ---
+learned_documents = {}
+learning_status = {"manual": False, "samples": False}
+
+def load_learned_documents():
+    """학습된 문서 내용을 로드합니다."""
+    global learned_documents, learning_status
+    try:
+        if os.path.exists('learned_documents.json'):
+            with open('learned_documents.json', 'r', encoding='utf-8') as f:
+                learned_documents = json.load(f)
+                learning_status = {
+                    "manual": learned_documents.get('manual', {}).get('content', '') != '',
+                    "samples": learned_documents.get('samples', {}).get('content', '') != ''
+                }
+                return True
+    except Exception as e:
+        st.error(f"학습된 문서를 로드하는 중 오류가 발생했습니다: {str(e)}")
+    return False
+
+def get_learning_enhanced_prompt(base_prompt, doc_type):
+    """학습된 내용이 포함된 강화된 프롬프트를 생성합니다."""
+    if not learned_documents:
+        return base_prompt
+    
+    enhancement = "\n\n[학습된 문서 가이드라인]:\n"
+    
+    if learning_status.get("manual") and learned_documents.get('manual', {}).get('content'):
+        enhancement += "\n📋 문서작성 가이드라인:\n"
+        enhancement += learned_documents['manual']['content']
+    
+    if learning_status.get("samples") and learned_documents.get('samples', {}).get('content'):
+        enhancement += "\n📝 품의서 작성 패턴:\n"
+        enhancement += learned_documents['samples']['content']
+    
+    enhancement += "\n\n위 가이드라인과 패턴을 참고하여 더욱 전문적이고 완성도 높은 문서를 작성해주세요."
+    
+    return base_prompt + enhancement
+
+# 앱 시작 시 학습된 문서 로드
+load_learned_documents()
+
 # --- AI 설정 (OpenAI GPT-4o mini 사용) ---
 client = None
 openai_available = False
@@ -81,20 +123,32 @@ def get_ai_response(system_prompt, user_prompt):
 def analyze_keywords(keywords, doc_type):
     """키워드를 분석하여 추가 질문을 생성하는 함수"""
     analysis_prompt = f"사용자가 '{doc_type}' 작성을 위해 다음 키워드를 입력했습니다: '{keywords}'. 6W3H 원칙에 따라 완성도 높은 문서를 작성하기에 정보가 부족하다면, 가장 중요한 질문 2-3개를 `{{\"status\": \"incomplete\", \"questions\": [\"질문1\", \"질문2\"]}}` 형식으로 반환하고, 충분하다면 `{{\"status\": \"complete\"}}` 를 반환하세요."
-    system_prompt = "당신은 사용자의 입력을 분석하여 문서 작성에 필요한 추가 정보를 질문하는 시스템입니다. 반드시 지정된 JSON 형식으로만 응답해야 합니다."
-    return get_ai_response(system_prompt, analysis_prompt)
+    base_system_prompt = "당신은 사용자의 입력을 분석하여 문서 작성에 필요한 추가 정보를 질문하는 시스템입니다. 반드시 지정된 JSON 형식으로만 응답해야 합니다."
+    
+    # 학습된 내용으로 시스템 프롬프트 강화
+    enhanced_system_prompt = get_learning_enhanced_prompt(base_system_prompt, doc_type)
+    
+    return get_ai_response(enhanced_system_prompt, analysis_prompt)
 
 def generate_ai_draft(doc_type, context_keywords, file_context=""):
     """최종 키워드와 파일 내용을 바탕으로 AI 초안을 생성하는 함수"""
     user_prompt = f"다음 정보를 바탕으로 '{doc_type}' 초안을 JSON 형식으로 생성해주세요:\n\n[핵심 키워드]: {context_keywords}\n\n[첨부 파일 내용]:\n{file_context}"
+    # 기본 프롬프트를 학습된 내용으로 강화
+    base_prompts = {
+        "품의서": "당신은 한국의 '주식회사 몬쉘코리아' 소속의 유능한 사원입니다. 지금부터 제공하는 규칙과 예시를 완벽하게 숙지하고, 사용자의 키워드와 첨부파일 내용을 종합하여 품의서 초안 전체를 생성합니다. 문장의 종결어미는 `...함.`, `...요청함.`과 같이 명사형으로 간결하게 종결해야 합니다. 본문 항목 구분 시 반드시 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하고, 각 문장의 마침표 후에는 줄바꿈을 해주세요. `#` 기호는 사용하지 마세요. 핵심 내용은 반드시 'body' 또는 'items' 필드에 작성하고, 'remarks' 필드에는 부가적인 참고사항만 간략히 기입합니다. 키워드를 분석하여 'items'(표) 또는 'body'(줄글) 중 하나를 선택하여 `title`, `purpose`, `remarks`와 함께 JSON으로 출력합니다.",
+        "공지문": "당신은 한국 기업의 사내 커뮤니케이션 담당자입니다. 키워드와 첨부파일 내용을 바탕으로 '사내 공지문' 초안을 생성합니다. 'details' 필드에는 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하는 번호 매기기를 사용하고, 각 문장의 마침표 후에는 줄바꿈을 해주세요. details는 하나의 연속된 텍스트 문자열이어야 하며, JSON 객체가 아닌 일반 문자열로 작성해주세요. 응답은 'title', 'target', 'summary', 'details', 'contact' key를 포함하는 JSON 형식이어야 합니다.",
+        "공문": "당신은 대외 문서를 담당하는 총무팀 직원입니다. 키워드와 첨부파일 내용을 바탕으로 격식에 맞는 '공문' 초안을 생성합니다. 본문 작성 시 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하고, 각 문장의 마침표 후에는 줄바꿈을 해주세요. 응답은 'sender_org', 'receiver', 'cc', 'title', 'body', 'sender_name' key를 포함하는 JSON 형식이어야 합니다.",
+        "비즈니스 이메일": "당신은 비즈니스 커뮤니케이션 전문가입니다. 키워드와 첨부파일 내용을 바탕으로 전문적인 '비즈니스 이메일' 초안을 생성합니다. 본문 작성 시 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하고, 각 문장의 마침표 후에는 줄바꿈을 해주세요. 응답은 `subject`, `body`, `closing` key를 포함하는 JSON 형식이어야 합니다. `closing`에는 회사명, 연락처, 이메일 주소 등의 서명 정보를 포함하지 마세요. 단순히 인사말이나 마무리 문구만 포함하세요."
+    }
+    
+    # 학습된 내용으로 프롬프트 강화
+    enhanced_system_prompt = get_learning_enhanced_prompt(base_prompts[doc_type], doc_type)
+    
     prompts = {
-        "품의서": {
-            "system": "당신은 한국의 '주식회사 몬쉘코리아' 소속의 유능한 사원입니다. 지금부터 제공하는 규칙과 예시를 완벽하게 숙지하고, 사용자의 키워드와 첨부파일 내용을 종합하여 품의서 초안 전체를 생성합니다. 문장의 종결어미는 `...함.`, `...요청함.`과 같이 명사형으로 간결하게 종결해야 합니다. 본문 항목 구분 시 반드시 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하고, 각 문장의 마침표 후에는 줄바꿈을 해주세요. `#` 기호는 사용하지 마세요. 핵심 내용은 반드시 'body' 또는 'items' 필드에 작성하고, 'remarks' 필드에는 부가적인 참고사항만 간략히 기입합니다. 키워드를 분석하여 'items'(표) 또는 'body'(줄글) 중 하나를 선택하여 `title`, `purpose`, `remarks`와 함께 JSON으로 출력합니다.",
-            "user": user_prompt
-        },
-        "공지문": { "system": "당신은 한국 기업의 사내 커뮤니케이션 담당자입니다. 키워드와 첨부파일 내용을 바탕으로 '사내 공지문' 초안을 생성합니다. 'details' 필드에는 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하는 번호 매기기를 사용하고, 각 문장의 마침표 후에는 줄바꿈을 해주세요. details는 하나의 연속된 텍스트 문자열이어야 하며, JSON 객체가 아닌 일반 문자열로 작성해주세요. 응답은 'title', 'target', 'summary', 'details', 'contact' key를 포함하는 JSON 형식이어야 합니다.", "user": user_prompt },
-        "공문": { "system": "당신은 대외 문서를 담당하는 총무팀 직원입니다. 키워드와 첨부파일 내용을 바탕으로 격식에 맞는 '공문' 초안을 생성합니다. 본문 작성 시 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하고, 각 문장의 마침표 후에는 줄바꿈을 해주세요. 응답은 'sender_org', 'receiver', 'cc', 'title', 'body', 'sender_name' key를 포함하는 JSON 형식이어야 합니다.", "user": user_prompt },
-        "비즈니스 이메일": { "system": "당신은 비즈니스 커뮤니케이션 전문가입니다. 키워드와 첨부파일 내용을 바탕으로 전문적인 '비즈니스 이메일' 초안을 생성합니다. 본문 작성 시 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하고, 각 문장의 마침표 후에는 줄바꿈을 해주세요. 응답은 `subject`, `body`, `closing` key를 포함하는 JSON 형식이어야 합니다. `closing`에는 회사명, 연락처, 이메일 주소 등의 서명 정보를 포함하지 마세요. 단순히 인사말이나 마무리 문구만 포함하세요.", "user": user_prompt }
+        "품의서": {"system": enhanced_system_prompt, "user": user_prompt},
+        "공지문": {"system": enhanced_system_prompt, "user": user_prompt},
+        "공문": {"system": enhanced_system_prompt, "user": user_prompt},
+        "비즈니스 이메일": {"system": enhanced_system_prompt, "user": user_prompt}
     }
     return get_ai_response(prompts[doc_type]["system"], prompts[doc_type]["user"])
 
@@ -370,6 +424,58 @@ if 'previous_doc_type' not in st.session_state:
 
 doc_type = st.sidebar.radio("작성할 문서의 종류를 선택하세요.", ('품의서', '공지문', '공문', '비즈니스 이메일'), key="doc_type_selector")
 
+# --- 설정 섹션 ---
+st.sidebar.divider()
+st.sidebar.title("⚙️ 설정")
+
+# 학습 상태 표시
+if learning_status["manual"] or learning_status["samples"]:
+    st.sidebar.success("📚 학습 완료!")
+    if learning_status["manual"]:
+        st.sidebar.text("✅ 문서작성 가이드라인")
+    if learning_status["samples"]:
+        st.sidebar.text("✅ 품의서 작성 패턴")
+    
+    learned_at = learned_documents.get('learned_at', '알 수 없음')
+    st.sidebar.caption(f"학습 일시: {learned_at}")
+else:
+    st.sidebar.warning("📖 아직 학습되지 않음")
+
+# 학습 실행 버튼
+if st.sidebar.button("📚 PDF 문서 학습하기", use_container_width=True):
+    with st.sidebar.spinner("PDF 문서를 학습 중입니다..."):
+        try:
+            # learn_pdfs.py 스크립트 실행
+            import subprocess
+            result = subprocess.run(['python3', 'learn_pdfs.py'], 
+                                 capture_output=True, text=True, cwd='.')
+            
+            if result.returncode == 0:
+                # 학습 완료 후 다시 로드
+                if load_learned_documents():
+                    st.sidebar.success("✅ PDF 학습이 완료되었습니다!")
+                    st.rerun()
+                else:
+                    st.sidebar.error("❌ 학습 결과를 로드할 수 없습니다.")
+            else:
+                st.sidebar.error(f"❌ 학습 중 오류가 발생했습니다: {result.stderr}")
+        except Exception as e:
+            st.sidebar.error(f"❌ 학습 실행 중 오류: {str(e)}")
+
+# 학습 상태 초기화 버튼
+if learning_status["manual"] or learning_status["samples"]:
+    if st.sidebar.button("🗑️ 학습 데이터 초기화", use_container_width=True):
+        try:
+            if os.path.exists('learned_documents.json'):
+                os.remove('learned_documents.json')
+            global learned_documents, learning_status
+            learned_documents = {}
+            learning_status = {"manual": False, "samples": False}
+            st.sidebar.success("✅ 학습 데이터가 초기화되었습니다!")
+            st.rerun()
+        except Exception as e:
+            st.sidebar.error(f"❌ 초기화 중 오류: {str(e)}")
+
 # 문서 타입이 변경된 경우에만 상태 초기화
 if st.session_state.previous_doc_type != doc_type:
     clear_all_state()
@@ -395,14 +501,25 @@ for key, default_value in state_defaults.items():
 
 if openai_available:
     st.title(f"✍️ AI {doc_type} 자동 생성")
-    st.success("🤖 AI 기능이 활성화되었습니다!")
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.success("🤖 AI 기능이 활성화되었습니다!")
+    with col2:
+        if learning_status["manual"] or learning_status["samples"]:
+            st.success("📚 학습 완료")
+        else:
+            st.info("📖 미학습")
 else:
     st.title(f"📝 {doc_type} 템플릿")
     st.error("⚠️ AI 기능이 비활성화되었습니다. OpenAI API 키를 설정해주세요.")
 
 if not st.session_state.clarifying_questions:
     if openai_available:
-        st.markdown("핵심 키워드나 내용을 자유롭게 입력하고, 필요시 참고 파일을 업로드하여 문서 초안을 생성하세요.")
+        if learning_status["manual"] or learning_status["samples"]:
+            st.markdown("📚 **학습된 PDF 문서의 가이드라인이 적용됩니다.** 핵심 키워드나 내용을 자유롭게 입력하고, 필요시 참고 파일을 업로드하여 문서 초안을 생성하세요.")
+        else:
+            st.markdown("핵심 키워드나 내용을 자유롭게 입력하고, 필요시 참고 파일을 업로드하여 문서 초안을 생성하세요.")
+            st.info("💡 **팁**: 사이드바에서 'PDF 문서 학습하기'를 클릭하면 더욱 전문적인 문서를 생성할 수 있습니다.")
     else:
         st.markdown("현재 AI 기능이 비활성화되어 있습니다. OpenAI API 키를 설정하면 자동 문서 생성 기능을 사용할 수 있습니다.")
         with st.expander("API 키 설정 방법"):
