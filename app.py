@@ -16,17 +16,25 @@ from pptx import Presentation
 import openpyxl
 
 # --- AI 설정 (OpenAI GPT-4o mini 사용) ---
+client = None
+openai_available = False
+
 try:
-    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-except KeyError:
-    st.error("⚠️ AI 기능을 사용하려면 Streamlit Secrets에 OPENAI_API_KEY를 등록해야 합니다.")
-    st.stop()
+    if "OPENAI_API_KEY" in st.secrets:
+        client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+        openai_available = True
+    else:
+        st.warning("⚠️ OpenAI API 키가 설정되지 않았습니다. AI 기능이 비활성화됩니다.")
 except Exception as e:
     st.error(f"OpenAI 클라이언트 초기화 중 오류가 발생했습니다: {str(e)}")
-    st.stop()
+    st.warning("AI 기능이 비활성화됩니다.")
 
 def get_ai_response(system_prompt, user_prompt):
     """OpenAI API를 호출하는 범용 함수"""
+    if not openai_available or client is None:
+        st.error("⚠️ OpenAI API가 설정되지 않아 AI 기능을 사용할 수 없습니다.")
+        return None
+        
     if not system_prompt or not user_prompt:
         st.error("프롬프트가 비어있습니다.")
         return None
@@ -367,10 +375,28 @@ for key, default_value in state_defaults.items():
     if key not in st.session_state:
         st.session_state[key] = default_value
 
-st.title(f"✍️ AI {doc_type} 자동 생성")
+if openai_available:
+    st.title(f"✍️ AI {doc_type} 자동 생성")
+    st.success("🤖 AI 기능이 활성화되었습니다!")
+else:
+    st.title(f"📝 {doc_type} 템플릿")
+    st.error("⚠️ AI 기능이 비활성화되었습니다. OpenAI API 키를 설정해주세요.")
 
 if not st.session_state.clarifying_questions:
-    st.markdown("핵심 키워드나 내용을 자유롭게 입력하고, 필요시 참고 파일을 업로드하여 문서 초안을 생성하세요.")
+    if openai_available:
+        st.markdown("핵심 키워드나 내용을 자유롭게 입력하고, 필요시 참고 파일을 업로드하여 문서 초안을 생성하세요.")
+    else:
+        st.markdown("현재 AI 기능이 비활성화되어 있습니다. OpenAI API 키를 설정하면 자동 문서 생성 기능을 사용할 수 있습니다.")
+        with st.expander("API 키 설정 방법"):
+            st.markdown("""
+            1. [OpenAI 웹사이트](https://platform.openai.com/)에서 API 키를 발급받으세요
+            2. Streamlit Cloud의 앱 설정에서 Secrets 섹션으로 이동하세요
+            3. 다음과 같이 API 키를 추가하세요:
+            ```
+            OPENAI_API_KEY = "your-api-key-here"
+            ```
+            4. 앱을 재시작하세요
+            """)
     sub_type = ""
     if doc_type == "품의서":
         sub_type = st.selectbox("품의서 세부 유형을 선택하세요:", ["선택 안함", "비용 집행", "신규 사업/계약", "인사/정책 변경", "결과/사건 보고"])
@@ -401,7 +427,11 @@ if not st.session_state.clarifying_questions:
         else:
             st.info(f"파일 {len(uploaded_files)}개 업로드됨 (전체 크기: {total_size/1024/1024:.1f}MB)")
     use_clarifying_questions = st.checkbox("AI에게 추가 질문을 받아 문서 완성도 높이기 (선택 사항)")
-    if st.button("AI 초안 생성 시작", type="primary", use_container_width=True):
+    ai_button_disabled = not openai_available
+    if ai_button_disabled:
+        st.warning("⚠️ OpenAI API 키가 필요합니다. Streamlit Secrets에 OPENAI_API_KEY를 설정해주세요.")
+    
+    if st.button("AI 초안 생성 시작", type="primary", use_container_width=True, disabled=ai_button_disabled):
         # 입력 유효성 검사
         validation_errors = []
         
@@ -501,7 +531,7 @@ else:
             st.warning(f"⚠️ 질문 {i+1}: 너무 짧습니다. 더 상세히 답변해주세요.")
         elif answer and len(answer) > 500:
             st.warning(f"⚠️ 질문 {i+1}: 너무 깁니다. 500자 이하로 입력해주세요.")
-    if st.button("답변 제출하고 문서 생성하기", type="primary", use_container_width=True):
+    if st.button("답변 제출하고 문서 생성하기", type="primary", use_container_width=True, disabled=not openai_available):
         # 답변 유효성 검사
         answered_questions = [q for q, a in answers.items() if a.strip()]
         if len(answered_questions) == 0:
