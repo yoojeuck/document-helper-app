@@ -445,10 +445,29 @@ st.sidebar.title("⚙️ 설정")
 # 학습 상태 표시
 if learning_status["manual"] or learning_status["samples"]:
     st.sidebar.success("📚 학습 완료!")
+    
+    # 상세 상태 표시
     if learning_status["manual"]:
-        st.sidebar.text("✅ 문서작성 가이드라인")
+        manual_info = learned_documents.get('manual', {})
+        source = manual_info.get('source', 'unknown')
+        if source == 'pdf_extracted':
+            st.sidebar.text("✅ 문서작성메뉴얼 (PDF 추출)")
+        else:
+            st.sidebar.text("⚠️ 문서작성메뉴얼 (기본값)")
+    
     if learning_status["samples"]:
-        st.sidebar.text("✅ 품의서 작성 패턴")
+        samples_info = learned_documents.get('samples', {})
+        source = samples_info.get('source', 'unknown')
+        if source == 'pdf_extracted':
+            st.sidebar.text("✅ 품의서 모음 (PDF 추출)")
+        else:
+            st.sidebar.text("⚠️ 품의서 모음 (기본값)")
+    
+    # 학습 통계 표시
+    summary = learned_documents.get('summary', {})
+    if summary:
+        total_length = summary.get('total_content_length', 0)
+        st.sidebar.caption(f"추출된 텍스트: {total_length:,}자")
     
     learned_at = learned_documents.get('learned_at', '알 수 없음')
     st.sidebar.caption(f"학습 일시: {learned_at}")
@@ -457,72 +476,75 @@ else:
 
 # 학습 실행 버튼
 if st.sidebar.button("📚 PDF 문서 학습하기", use_container_width=True):
-    with st.sidebar.spinner("PDF 문서를 학습 중입니다..."):
-        try:
-            # 직접 PDF 학습 실행 (subprocess 대신)
+    try:
+        with st.spinner("PDF 문서를 학습 중입니다..."):
+            # 실제 PDF 파일 읽기
             from datetime import datetime
             
-            # 학습된 내용 생성
-            manual_content = """
-            한국 비즈니스 문서 작성 가이드라인:
+            def read_pdf_file(filename):
+                """PDF 파일을 읽어서 텍스트를 추출합니다."""
+                try:
+                    if not os.path.exists(filename):
+                        return f"파일 '{filename}'을 찾을 수 없습니다."
+                    
+                    with open(filename, 'rb') as file:
+                        pdf_reader = PyPDF2.PdfReader(file)
+                        text = ""
+                        for page in pdf_reader.pages:
+                            page_text = page.extract_text()
+                            if page_text:
+                                text += page_text + "\n"
+                        
+                        if not text.strip():
+                            return f"PDF '{filename}'에서 텍스트를 추출할 수 없습니다."
+                        
+                        return text.strip()
+                        
+                except Exception as e:
+                    return f"PDF '{filename}' 읽기 중 오류: {str(e)}"
             
-            1. 품의서 작성 원칙:
-            - 6W3H 원칙 적용 (When, Where, What, Who, Whom, Why, How, How much, How long)
-            - 목적과 배경을 명확히 기술
-            - 예상 비용과 효과를 구체적으로 제시
-            - 의사결정에 필요한 모든 정보 포함
+            # 실제 PDF 파일들 읽기
+            st.info("문서작성메뉴얼.PDF 읽는 중...")
+            manual_content = read_pdf_file('문서작성메뉴얼.PDF')
             
-            2. 문서 구조:
-            - 제목: 핵심 내용을 한눈에 파악할 수 있도록
-            - 목적: 왜 이 품의를 올리는지 명확히
-            - 상세내역: 구체적인 내용과 수치
-            - 비고: 추가 고려사항 및 기대효과
+            st.info("유제욱 품의서 모음.pdf 읽는 중...")
+            samples_content = read_pdf_file('유제욱 품의서 모음.pdf')
             
-            3. 작성 스타일:
-            - 간결하고 명확한 문체 사용
-            - 객관적이고 사실적인 서술
-            - 명사형 종결어미 사용 (...함, ...요청함)
-            """
+            # 읽기 결과 확인
+            manual_success = not manual_content.startswith("파일") and not manual_content.startswith("PDF")
+            samples_success = not samples_content.startswith("파일") and not samples_content.startswith("PDF")
             
-            samples_content = """
-            품의서 샘플 패턴 분석:
+            if not manual_success:
+                st.warning(f"⚠️ 문서작성메뉴얼.PDF: {manual_content}")
+                manual_content = "PDF 파일을 읽을 수 없어 기본 가이드라인을 사용합니다."
             
-            1. 제목 패턴:
-            - "업무용 장비 구매에 관한 품의"
-            - "교육 프로그램 도입 품의서"
-            - "시스템 개선을 위한 예산 승인 요청"
-            
-            2. 목적 서술 패턴:
-            - "업무 효율성 향상을 위하여..."
-            - "고객 서비스 품질 개선을 목적으로..."
-            - "조직 역량 강화 및 경쟁력 제고를 위해..."
-            
-            3. 상세내역 구성:
-            - 구매 품목과 수량 명시
-            - 단가 및 총액 표기
-            - 도입 일정 및 방법 기술
-            - 기대 효과 구체적 설명
-            
-            4. 비고 작성법:
-            - 예산 출처 및 집행 방법
-            - 대안 검토 결과
-            - 향후 계획 및 확장 가능성
-            """
+            if not samples_success:
+                st.warning(f"⚠️ 유제욱 품의서 모음.pdf: {samples_content}")
+                samples_content = "PDF 파일을 읽을 수 없어 기본 샘플 패턴을 사용합니다."
             
             # 학습 결과 저장
             learned_content = {
                 'manual': {
                     'filename': '문서작성메뉴얼.PDF',
                     'content': manual_content,
-                    'source': 'extracted_guidelines'
+                    'source': 'pdf_extracted' if manual_success else 'fallback_guidelines',
+                    'length': len(manual_content),
+                    'success': manual_success
                 },
                 'samples': {
                     'filename': '유제욱 품의서 모음.pdf', 
                     'content': samples_content,
-                    'source': 'pattern_analysis'
+                    'source': 'pdf_extracted' if samples_success else 'fallback_patterns',
+                    'length': len(samples_content),
+                    'success': samples_success
                 },
                 'learned_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'status': 'learned'
+                'status': 'learned',
+                'summary': {
+                    'manual_extracted': manual_success,
+                    'samples_extracted': samples_success,
+                    'total_content_length': len(manual_content) + len(samples_content)
+                }
             }
             
             # learned_documents.json 파일로 저장
@@ -536,8 +558,8 @@ if st.sidebar.button("📚 PDF 문서 학습하기", use_container_width=True):
             else:
                 st.sidebar.error("❌ 학습 결과를 로드할 수 없습니다.")
                 
-        except Exception as e:
-            st.sidebar.error(f"❌ 학습 실행 중 오류: {str(e)}")
+    except Exception as e:
+        st.sidebar.error(f"❌ 학습 실행 중 오류: {str(e)}")
 
 # 학습 상태 초기화 버튼
 if learning_status["manual"] or learning_status["samples"]:
@@ -586,7 +608,18 @@ else:
 if not st.session_state.clarifying_questions:
     if openai_available:
         if learning_status["manual"] or learning_status["samples"]:
-            st.markdown("📚 **학습된 PDF 문서의 가이드라인이 적용됩니다.** 핵심 키워드나 내용을 자유롭게 입력하고, 필요시 참고 파일을 업로드하여 문서 초안을 생성하세요.")
+            # 실제 PDF 추출 상태 확인
+            manual_extracted = learned_documents.get('manual', {}).get('source') == 'pdf_extracted'
+            samples_extracted = learned_documents.get('samples', {}).get('source') == 'pdf_extracted'
+            
+            if manual_extracted and samples_extracted:
+                st.markdown("📚 **실제 PDF 문서에서 추출된 가이드라인이 적용됩니다.** 핵심 키워드나 내용을 자유롭게 입력하고, 필요시 참고 파일을 업로드하여 문서 초안을 생성하세요.")
+            elif manual_extracted or samples_extracted:
+                st.markdown("📚 **일부 PDF 문서에서 추출된 가이드라인이 적용됩니다.** 핵심 키워드나 내용을 자유롭게 입력하고, 필요시 참고 파일을 업로드하여 문서 초안을 생성하세요.")
+                st.warning("⚠️ 일부 PDF 파일을 읽을 수 없어 기본 가이드라인을 사용 중입니다.")
+            else:
+                st.markdown("📚 **기본 가이드라인이 적용됩니다.** 핵심 키워드나 내용을 자유롭게 입력하고, 필요시 참고 파일을 업로드하여 문서 초안을 생성하세요.")
+                st.warning("⚠️ PDF 파일들을 읽을 수 없어 기본 가이드라인을 사용 중입니다. Streamlit Cloud 환경에서는 로컬 파일 접근이 제한될 수 있습니다.")
         else:
             st.markdown("핵심 키워드나 내용을 자유롭게 입력하고, 필요시 참고 파일을 업로드하여 문서 초안을 생성하세요.")
             st.info("💡 **팁**: 사이드바에서 'PDF 문서 학습하기'를 클릭하면 더욱 전문적인 문서를 생성할 수 있습니다.")
