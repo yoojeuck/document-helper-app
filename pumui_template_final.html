@@ -23,6 +23,12 @@
     <div class="centered-text">- 아 래 -</div>
     <div class="content">
         <h2>1. 상세 내역</h2>
+        {% if body %}
+            <div class="body-text">{{ body|safe }}</div>
+            {% if items %}
+                <br>
+            {% endif %}
+        {% endif %}
         {% if items %}
             <table>
                 <thead>
@@ -42,8 +48,6 @@
                     {% endfor %}
                 </tbody>
             </table>
-        {% elif body %}
-            <div class="body-text">{{ body|safe }}</div>
         {% endif %}
     </div>
     <div class="content">
