@@ -89,12 +89,12 @@ def generate_ai_draft(doc_type, context_keywords, file_context=""):
     user_prompt = f"다음 정보를 바탕으로 '{doc_type}' 초안을 JSON 형식으로 생성해주세요:\n\n[핵심 키워드]: {context_keywords}\n\n[첨부 파일 내용]:\n{file_context}"
     prompts = {
         "품의서": {
-            "system": "당신은 한국의 '주식회사 몬쉘코리아' 소속의 유능한 사원입니다. 지금부터 제공하는 규칙과 예시를 완벽하게 숙지하고, 사용자의 키워드와 첨부파일 내용을 종합하여 품의서 초안 전체를 생성합니다. 문장의 종결어미는 `...함.`, `...요청함.`과 같이 명사형으로 간결하게 종결해야 합니다. 본문 항목 구분 시 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하는 마크다운을 사용하고, `#` 기호는 사용하지 마세요. 핵심 내용은 반드시 'body' 또는 'items' 필드에 작성하고, 'remarks' 필드에는 부가적인 참고사항만 간략히 기입합니다. 키워드를 분석하여 'items'(표) 또는 'body'(줄글) 중 하나를 선택하여 `title`, `purpose`, `remarks`와 함께 JSON으로 출력합니다.",
+            "system": "당신은 한국의 '주식회사 몬쉘코리아' 소속의 유능한 사원입니다. 지금부터 제공하는 규칙과 예시를 완벽하게 숙지하고, 사용자의 키워드와 첨부파일 내용을 종합하여 품의서 초안 전체를 생성합니다. 문장의 종결어미는 `...함.`, `...요청함.`과 같이 명사형으로 간결하게 종결해야 합니다. 본문 항목 구분 시 반드시 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하고, 각 문장의 마침표 후에는 줄바꿈을 해주세요. `#` 기호는 사용하지 마세요. 핵심 내용은 반드시 'body' 또는 'items' 필드에 작성하고, 'remarks' 필드에는 부가적인 참고사항만 간략히 기입합니다. 키워드를 분석하여 'items'(표) 또는 'body'(줄글) 중 하나를 선택하여 `title`, `purpose`, `remarks`와 함께 JSON으로 출력합니다.",
             "user": user_prompt
         },
-        "공지문": { "system": "당신은 한국 기업의 사내 커뮤니케이션 담당자입니다. 키워드와 첨부파일 내용을 바탕으로, `1.`, `  1)` 등 마크다운 형식의 번호 매기기와 줄바꿈을 명확히 사용한 '사내 공지문' 초안을 생성합니다. 응답은 'title', 'target', 'summary', 'details', 'contact' key를 포함하는 JSON 형식이어야 합니다.", "user": user_prompt },
-        "공문": { "system": "당신은 대외 문서를 담당하는 총무팀 직원입니다. 키워드와 첨부파일 내용을 바탕으로 격식에 맞는 '공문' 초안을 생성합니다. 응답은 'sender_org', 'receiver', 'cc', 'title', 'body', 'sender_name' key를 포함하는 JSON 형식이어야 합니다.", "user": user_prompt },
-        "비즈니스 이메일": { "system": "당신은 비즈니스 커뮤니케이션 전문가입니다. 키워드와 첨부파일 내용을 바탕으로 전문적인 '비즈니스 이메일' 초안을 생성합니다. 응답은 `subject`, `body`, `closing` key를 포함하는 JSON 형식이어야 합니다. `closing`에는 서명 정보를 포함하지 마세요.", "user": user_prompt }
+        "공지문": { "system": "당신은 한국 기업의 사내 커뮤니케이션 담당자입니다. 키워드와 첨부파일 내용을 바탕으로, `1.`, `  1)`, `    (1)` 의 위계질서를 준수하는 번호 매기기와 각 문장의 마침표 후 줄바꿈을 명확히 사용한 '사내 공지문' 초안을 생성합니다. 응답은 'title', 'target', 'summary', 'details', 'contact' key를 포함하는 JSON 형식이어야 합니다.", "user": user_prompt },
+        "공문": { "system": "당신은 대외 문서를 담당하는 총무팀 직원입니다. 키워드와 첨부파일 내용을 바탕으로 격식에 맞는 '공문' 초안을 생성합니다. 본문 작성 시 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하고, 각 문장의 마침표 후에는 줄바꿈을 해주세요. 응답은 'sender_org', 'receiver', 'cc', 'title', 'body', 'sender_name' key를 포함하는 JSON 형식이어야 합니다.", "user": user_prompt },
+        "비즈니스 이메일": { "system": "당신은 비즈니스 커뮤니케이션 전문가입니다. 키워드와 첨부파일 내용을 바탕으로 전문적인 '비즈니스 이메일' 초안을 생성합니다. 본문 작성 시 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하고, 각 문장의 마침표 후에는 줄바꿈을 해주세요. 응답은 `subject`, `body`, `closing` key를 포함하는 JSON 형식이어야 합니다. `closing`에는 회사명, 연락처, 이메일 주소 등의 서명 정보를 포함하지 마세요. 단순히 인사말이나 마무리 문구만 포함하세요.", "user": user_prompt }
     }
     return get_ai_response(prompts[doc_type]["system"], prompts[doc_type]["user"])
 
@@ -215,7 +215,11 @@ def renumber_text(text):
 
 def clean_text(text):
     if not isinstance(text, str): return ""
+    # 마크다운 헤더 제거
     processed_text = re.sub(r'^\s*#+\s*', '', text, flags=re.MULTILINE)
+    # 마침표 뒤에 줄바꿈이 없으면 추가 (단, 숫자 뒤의 마침표는 제외)
+    processed_text = re.sub(r'\.(?!\s*\n)(?!\s*$)(?!\d)', '.\n', processed_text)
+    # 번호 매기기 정리
     processed_text = renumber_text(processed_text)
     return processed_text
 
