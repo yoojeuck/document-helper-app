@@ -842,6 +842,7 @@ if draft:
         
         # 표 데이터 편집
         st.markdown("**상세 내역 (표)**")
+        st.caption("구체적인 항목, 수량, 금액 등을 표로 정리합니다.")
         try:
             if "items" in p_data and p_data["items"] and len(p_data["items"]) > 0:
                 # AI가 생성한 표가 있는 경우 - 안전하게 DataFrame 생성
@@ -851,39 +852,39 @@ if draft:
                     if isinstance(items_data[0], dict):
                         try:
                             p_data["df"] = pd.DataFrame(items_data)
-                            p_data["df_edited"] = st.data_editor(p_data["df"], num_rows="dynamic", help="구체적인 항목, 수량, 금액 등을 표로 정리합니다.")
+                            p_data["df_edited"] = st.data_editor(p_data["df"], num_rows="dynamic")
                         except Exception as e:
                             st.warning(f"⚠️ AI 생성 표 데이터에 문제가 있어 기본 형식을 사용합니다: {str(e)}")
                             # 기본 구조로 대체
                             default_items = [
                                 {"항목": "노트북", "수량": "10", "단가": "500,000", "금액": "5,000,000", "비고": "마케팅팀용"}
                             ]
-                            p_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic", help="구체적인 항목, 수량, 금액 등을 표로 정리합니다.")
+                            p_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic")
                     else:
                         # 데이터 형식이 올바르지 않은 경우
                         default_items = [
                             {"항목": "노트북", "수량": "10", "단가": "500,000", "금액": "5,000,000", "비고": "마케팅팀용"}
                         ]
-                        p_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic", help="구체적인 항목, 수량, 금액 등을 표로 정리합니다.")
+                        p_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic")
                 else:
                     # 빈 데이터인 경우
                     default_items = [
                         {"항목": "노트북", "수량": "10", "단가": "500,000", "금액": "5,000,000", "비고": "마케팅팀용"}
                     ]
-                    p_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic", help="구체적인 항목, 수량, 금액 등을 표로 정리합니다.")
+                    p_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic")
             else:
                 # 표가 없는 경우 기본 구조 제공
                 default_items = [
                     {"항목": "노트북", "수량": "10", "단가": "500,000", "금액": "5,000,000", "비고": "마케팅팀용"}
                 ]
-                p_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic", help="구체적인 항목, 수량, 금액 등을 표로 정리합니다.")
+                p_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic")
         except Exception as e:
             st.error(f"⚠️ 표 데이터 처리 중 오류가 발생했습니다: {str(e)}")
             # 최종 fallback
             default_items = [
                 {"항목": "예시 항목", "수량": "1", "단가": "100,000", "금액": "100,000", "비고": "설명"}
             ]
-            p_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic", help="구체적인 항목, 수량, 금액 등을 표로 정리합니다.")
+            p_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic")
         
         p_data["remarks"] = st.text_area("비고", value=p_data.get("remarks", ""), height=150, help="예상 비용(How much), 소요 기간(How long), 기대 효과 등 의사결정에 필요한 추가 정보를 기입합니다.")
         
