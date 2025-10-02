@@ -286,14 +286,14 @@ def clean_text(text):
     # 마크다운 헤더 제거
     processed_text = re.sub(r'^\s*#+\s*', '', text, flags=re.MULTILINE)
     
-    # 마침표 뒤에 줄바꿈이 없으면 추가 (더 정확한 패턴)
-    # 1. 숫자 뒤의 마침표는 제외 (예: 1., 2., 3.)
-    # 2. 이미 줄바꿈이 있는 경우는 제외
-    # 3. 문장 끝 마침표는 제외
-    processed_text = re.sub(r'\.(?!\s*\n)(?!\s*$)(?![0-9])(?!\s*[0-9])(?!\s*\))', '.\n', processed_text)
-    
-    # 추가로 문장 끝 마침표 다음에도 줄바꿈 추가 (다음에 글자가 오는 경우)
-    processed_text = re.sub(r'\.(\s+)([가-힣A-Za-z])', r'.\n\2', processed_text)
+    # 마침표 뒤에 줄바꿈 추가 (번호 매기기 제외)
+    # 제외 조건:
+    # 1. 숫자.공백 패턴 (1. , 2. , 3. 등)
+    # 2. 공백+숫자) 패턴 (  1), (1) 등) 
+    # 3. 이미 줄바꿈이 있는 경우
+    # 4. 문자열 끝인 경우
+    # 문장 마침표만 감지하도록 개선된 패턴
+    processed_text = re.sub(r'(?<!\d)\.(?!\s*\n)(?!\s*$)(?!\s+[0-9])(?!\s*\))(?=\s*[가-힣A-Za-z])', '.\n', processed_text)
     
     # 번호 매기기 정리
     processed_text = renumber_text(processed_text)
