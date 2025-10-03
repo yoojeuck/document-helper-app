@@ -28,6 +28,28 @@
     <div class="body-title">제 목: {{ title }}</div>
     <div class="content">
         <p>{{ body|safe }}</p>
+        
+        {% if items and items|length > 0 %}
+        <br>
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+            <thead>
+                <tr style="background-color: #f2f2f2;">
+                    {% for header in table_headers %}
+                    <th style="border: 1px solid #333; padding: 12px; text-align: center; font-weight: bold;">{{ header }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    {% for header in table_headers %}
+                    <td style="border: 1px solid #333; padding: 12px; text-align: center;">{{ item[header] }}</td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
     </div>
     <div class="footer">
         <p class="sender-name">{{ sender_name }} <span class="seal-space">(인)</span></p>
