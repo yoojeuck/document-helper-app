@@ -16,6 +16,28 @@
     
     <p>{{ body|safe }}</p>
     
+    {% if items and items|length > 0 %}
+    <br>
+    <table style="width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 10pt;">
+        <thead>
+            <tr style="background-color: #f8f8f8;">
+                {% for header in table_headers %}
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: center; font-weight: bold;">{{ header }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                {% for header in table_headers %}
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{{ item[header] }}</td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+    
     <p>{{ closing|safe }}</p>
 
     <div class="signature">
