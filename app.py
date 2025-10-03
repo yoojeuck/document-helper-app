@@ -381,7 +381,7 @@ def clean_text(text):
     processed_text = renumber_text(processed_text)
     return processed_text
 
-def text_to_html(text): 
+def text_to_html(text, for_email=False): 
     """텍스트를 HTML 형식으로 변환"""
     if isinstance(text, dict):
         # JSON 객체 형태로 된 경우 텍스트로 변환
@@ -397,7 +397,15 @@ def text_to_html(text):
                 formatted_text += f"{key} {value}\n"
         text = formatted_text
     
-    return clean_text(text).replace('\n', '<br>')
+    if for_email:
+        # 이메일의 경우 clean_text 처리를 하지 않고 기본 줄바꿈만 처리
+        if not isinstance(text, str): 
+            text = ""
+        # 마크다운 헤더만 제거하고 자동 줄바꿈은 추가하지 않음
+        processed_text = re.sub(r'^\s*#+\s*', '', text, flags=re.MULTILINE)
+        return processed_text.replace('\n', '<br>')
+    else:
+        return clean_text(text).replace('\n', '<br>')
 
 def validate_input_length(text, min_length=0, max_length=10000, field_name="입력"):
     """입력 텍스트 길이 유효성 검사"""
@@ -1148,6 +1156,42 @@ if draft:
             details_value = formatted_details
         
         g_data["details"] = st.text_area("상세 내용", value=details_value, height=200, help="5W1H 원칙에 따라 구체적인 정보를 제공합니다. 번호 매기기: 1. → 1) → (1)")
+        
+        # 표 데이터 편집 (공지문용)
+        st.markdown("**상세 내역 (표) - 선택사항**")
+        st.caption("일정, 교육과정, 제도 변경사항 등을 표로 정리할 수 있습니다.")
+        try:
+            if "items" in g_data and g_data["items"] and len(g_data["items"]) > 0:
+                # AI가 생성한 표가 있는 경우
+                items_data = g_data.get("items", [])
+                if isinstance(items_data, list) and len(items_data) > 0 and isinstance(items_data[0], dict):
+                    try:
+                        g_data["df"] = pd.DataFrame(items_data)
+                        g_data["df_edited"] = st.data_editor(g_data["df"], num_rows="dynamic")
+                    except Exception as e:
+                        st.warning(f"⚠️ AI 생성 표 데이터에 문제가 있어 기본 형식을 사용합니다: {str(e)}")
+                        default_items = [
+                            {"항목": "교육과정", "날짜": "2025-01-15", "시간": "09:00", "장소": "대회의실"}
+                        ]
+                        g_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic")
+                else:
+                    default_items = [
+                        {"항목": "교육과정", "날짜": "2025-01-15", "시간": "09:00", "장소": "대회의실"}
+                    ]
+                    g_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic")
+            else:
+                # 표가 없는 경우 기본 구조 제공 (필요시만)
+                if st.checkbox("표 추가하기 (일정, 교육과정 등)", key="add_table_gongji"):
+                    default_items = [
+                        {"항목": "교육과정", "날짜": "2025-01-15", "시간": "09:00", "장소": "대회의실"}
+                    ]
+                    g_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic")
+                else:
+                    g_data["df_edited"] = None
+        except Exception as e:
+            st.error(f"⚠️ 표 데이터 처리 중 오류가 발생했습니다: {str(e)}")
+            g_data["df_edited"] = None
+        
         g_data["contact"] = st.text_input("문의처", value=g_data.get("contact", ""), help="관련 질문에 답변할 담당자 정보입니다.")
         preview_button = st.button("미리보기 생성", use_container_width=True)
     elif doc_type == '공문':
@@ -1157,6 +1201,42 @@ if draft:
         gm_data["cc"] = st.text_input("참조", value=gm_data.get("cc", ""))
         gm_data["title"] = st.text_input("제목", value=gm_data.get("title", ""))
         gm_data["body"] = st.text_area("내용", value=gm_data.get("body", ""), height=250)
+        
+        # 표 데이터 편집 (공문용)
+        st.markdown("**상세 내역 (표) - 선택사항**")
+        st.caption("행사일정, 제출서류, 협력요청 등을 표로 정리할 수 있습니다.")
+        try:
+            if "items" in gm_data and gm_data["items"] and len(gm_data["items"]) > 0:
+                # AI가 생성한 표가 있는 경우
+                items_data = gm_data.get("items", [])
+                if isinstance(items_data, list) and len(items_data) > 0 and isinstance(items_data[0], dict):
+                    try:
+                        gm_data["df"] = pd.DataFrame(items_data)
+                        gm_data["df_edited"] = st.data_editor(gm_data["df"], num_rows="dynamic")
+                    except Exception as e:
+                        st.warning(f"⚠️ AI 생성 표 데이터에 문제가 있어 기본 형식을 사용합니다: {str(e)}")
+                        default_items = [
+                            {"항목": "제출서류", "서류명": "사업자등록증", "제출기한": "2025-01-31", "제출처": "총무팀"}
+                        ]
+                        gm_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic")
+                else:
+                    default_items = [
+                        {"항목": "제출서류", "서류명": "사업자등록증", "제출기한": "2025-01-31", "제출처": "총무팀"}
+                    ]
+                    gm_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic")
+            else:
+                # 표가 없는 경우 기본 구조 제공 (필요시만)
+                if st.checkbox("표 추가하기 (일정, 서류, 협력요청 등)", key="add_table_gongmun"):
+                    default_items = [
+                        {"항목": "제출서류", "서류명": "사업자등록증", "제출기한": "2025-01-31", "제출처": "총무팀"}
+                    ]
+                    gm_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic")
+                else:
+                    gm_data["df_edited"] = None
+        except Exception as e:
+            st.error(f"⚠️ 표 데이터 처리 중 오류가 발생했습니다: {str(e)}")
+            gm_data["df_edited"] = None
+        
         gm_data["sender_name"] = st.text_input("발신 명의", value=gm_data.get("sender_name", ""))
         preview_button = st.button("미리보기 생성", use_container_width=True)
     elif doc_type == '비즈니스 이메일':
@@ -1168,6 +1248,42 @@ if draft:
         st.subheader("메일 내용")
         e_data["subject"] = st.text_input("제목", value=e_data.get("subject", ""))
         e_data["body"] = st.text_area("본론", value=e_data.get("body", ""), height=200)
+        
+        # 표 데이터 편집 (비즈니스 이메일용)
+        st.markdown("**상세 내역 (표) - 선택사항**")
+        st.caption("미팅일정, 견적서, 업무일정 등을 표로 정리할 수 있습니다.")
+        try:
+            if "items" in e_data and e_data["items"] and len(e_data["items"]) > 0:
+                # AI가 생성한 표가 있는 경우
+                items_data = e_data.get("items", [])
+                if isinstance(items_data, list) and len(items_data) > 0 and isinstance(items_data[0], dict):
+                    try:
+                        e_data["df"] = pd.DataFrame(items_data)
+                        e_data["df_edited"] = st.data_editor(e_data["df"], num_rows="dynamic")
+                    except Exception as e:
+                        st.warning(f"⚠️ AI 생성 표 데이터에 문제가 있어 기본 형식을 사용합니다: {str(e)}")
+                        default_items = [
+                            {"항목": "미팅일정", "날짜": "2025-01-15", "시간": "14:00", "안건": "프로젝트 계획 논의"}
+                        ]
+                        e_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic")
+                else:
+                    default_items = [
+                        {"항목": "미팅일정", "날짜": "2025-01-15", "시간": "14:00", "안건": "프로젝트 계획 논의"}
+                    ]
+                    e_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic")
+            else:
+                # 표가 없는 경우 기본 구조 제공 (필요시만)
+                if st.checkbox("표 추가하기 (일정, 견적, 업무 등)", key="add_table_email"):
+                    default_items = [
+                        {"항목": "미팅일정", "날짜": "2025-01-15", "시간": "14:00", "안건": "프로젝트 계획 논의"}
+                    ]
+                    e_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic")
+                else:
+                    e_data["df_edited"] = None
+        except Exception as e:
+            st.error(f"⚠️ 표 데이터 처리 중 오류가 발생했습니다: {str(e)}")
+            e_data["df_edited"] = None
+        
         e_data["closing"] = st.text_area("결론", value=e_data.get("closing", ""), height=100)
         with st.expander("내 서명 정보 입력/수정"):
             signature_data["signature_name"] = st.text_input("이름", value="홍길동")
@@ -1231,15 +1347,22 @@ if draft:
             draft = g_data
             context = { "title": draft["title"], "target": draft["target"], "summary": text_to_html(draft["summary"]), "details": text_to_html(draft["details"]), "contact": draft["contact"], "generation_date": datetime.now().strftime('%Y. %m. %d.') }
             
-            # 표 데이터가 있으면 추가
-            if draft.get("items"):
-                try:
+            # 표 데이터 처리 (AI 생성 또는 사용자 편집)
+            try:
+                if "df_edited" in g_data and g_data["df_edited"] is not None and not g_data["df_edited"].empty:
+                    # 사용자가 편집한 표 데이터 사용
+                    filtered_df = g_data["df_edited"].dropna(how='all')
+                    if not filtered_df.empty:
+                        context["table_headers"] = list(filtered_df.columns)
+                        context["items"] = filtered_df.to_dict('records')
+                elif draft.get("items"):
+                    # AI가 생성한 표 데이터 사용
                     items_data = draft.get("items", [])
                     if isinstance(items_data, list) and len(items_data) > 0 and isinstance(items_data[0], dict):
                         context["table_headers"] = list(items_data[0].keys())
                         context["items"] = items_data
-                except Exception as e:
-                    st.warning(f"⚠️ 공지문 표 데이터 처리 중 문제: {str(e)}")
+            except Exception as e:
+                st.warning(f"⚠️ 공지문 표 데이터 처리 중 문제: {str(e)}")
             
             template = load_template('gongji_template.html')
             st.session_state[html_key] = generate_html(template, context)
@@ -1247,15 +1370,22 @@ if draft:
             draft = gm_data
             context = { "sender_org": draft["sender_org"], "receiver": draft["receiver"], "cc": draft["cc"], "title": draft["title"], "body": text_to_html(draft["body"]), "sender_name": draft["sender_name"], "generation_date": datetime.now().strftime('%Y. %m. %d.') }
             
-            # 표 데이터가 있으면 추가
-            if draft.get("items"):
-                try:
+            # 표 데이터 처리 (AI 생성 또는 사용자 편집)
+            try:
+                if "df_edited" in gm_data and gm_data["df_edited"] is not None and not gm_data["df_edited"].empty:
+                    # 사용자가 편집한 표 데이터 사용
+                    filtered_df = gm_data["df_edited"].dropna(how='all')
+                    if not filtered_df.empty:
+                        context["table_headers"] = list(filtered_df.columns)
+                        context["items"] = filtered_df.to_dict('records')
+                elif draft.get("items"):
+                    # AI가 생성한 표 데이터 사용
                     items_data = draft.get("items", [])
                     if isinstance(items_data, list) and len(items_data) > 0 and isinstance(items_data[0], dict):
                         context["table_headers"] = list(items_data[0].keys())
                         context["items"] = items_data
-                except Exception as e:
-                    st.warning(f"⚠️ 공문 표 데이터 처리 중 문제: {str(e)}")
+            except Exception as e:
+                st.warning(f"⚠️ 공문 표 데이터 처리 중 문제: {str(e)}")
             
             template = load_template('gongmun_template.html')
             st.session_state[html_key] = generate_html(template, context)
@@ -1264,15 +1394,26 @@ if draft:
             context = draft.copy()
             context["signature_company"] = "주식회사 몬쉘코리아"
             
-            # 표 데이터가 있으면 추가
-            if e_data.get("items"):
-                try:
+            # 이메일 본문 텍스트 처리 (자연스러운 줄바꿈)
+            context["body"] = text_to_html(draft.get("body", ""), for_email=True)
+            context["closing"] = text_to_html(draft.get("closing", ""), for_email=True)
+            
+            # 표 데이터 처리 (AI 생성 또는 사용자 편집)
+            try:
+                if "df_edited" in e_data and e_data["df_edited"] is not None and not e_data["df_edited"].empty:
+                    # 사용자가 편집한 표 데이터 사용
+                    filtered_df = e_data["df_edited"].dropna(how='all')
+                    if not filtered_df.empty:
+                        context["table_headers"] = list(filtered_df.columns)
+                        context["items"] = filtered_df.to_dict('records')
+                elif e_data.get("items"):
+                    # AI가 생성한 표 데이터 사용
                     items_data = e_data.get("items", [])
                     if isinstance(items_data, list) and len(items_data) > 0 and isinstance(items_data[0], dict):
                         context["table_headers"] = list(items_data[0].keys())
                         context["items"] = items_data
-                except Exception as e:
-                    st.warning(f"⚠️ 이메일 표 데이터 처리 중 문제: {str(e)}")
+            except Exception as e:
+                st.warning(f"⚠️ 이메일 표 데이터 처리 중 문제: {str(e)}")
             
             template = load_template('email_template_v2.html')
             st.session_state[html_key] = generate_html(template, context)
