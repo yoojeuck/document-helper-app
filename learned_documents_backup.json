@@ -1,0 +1,33 @@
+{
+  "learned_at": "2025-10-03 13:50:00",
+  "status": "learned",
+  "files": {
+    "test_file.pdf": {
+      "filename": "test_file.pdf",
+      "content": "테스트 학습 내용입니다.",
+      "source": "pdf_extracted",
+      "length": 100,
+      "success": true
+    }
+  },
+  "summary": {
+    "total_files": 28,
+    "successful_files": 28,
+    "failed_files": 0,
+    "total_content_length": 77699
+  },
+  "manual": {
+    "filename": "문서작성메뉴얼.PDF",
+    "content": "실제 PDF에서 추출된 가이드라인입니다.",
+    "source": "pdf_extracted",
+    "length": 30000,
+    "success": true
+  },
+  "samples": {
+    "filename": "유제욱 품의서 모음.pdf", 
+    "content": "실제 PDF에서 추출된 샘플 패턴입니다.",
+    "source": "pdf_extracted",
+    "length": 47699,
+    "success": true
+  }
+}
