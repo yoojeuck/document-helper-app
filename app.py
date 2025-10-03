@@ -27,10 +27,22 @@ def load_learned_documents():
         if os.path.exists('learned_documents.json'):
             with open('learned_documents.json', 'r', encoding='utf-8') as f:
                 learned_documents = json.load(f)
+                
+                # 기존 방식과 새로운 방식 모두 지원
                 learning_status = {
                     "manual": learned_documents.get('manual', {}).get('content', '') != '',
                     "samples": learned_documents.get('samples', {}).get('content', '') != ''
                 }
+                
+                # 새로운 files 구조가 있으면 추가로 확인
+                if learned_documents.get('files'):
+                    files_data = learned_documents.get('files', {})
+                    successful_files = [f for f, data in files_data.items() if data.get('success')]
+                    if successful_files:
+                        learning_status["files_learned"] = True
+                    else:
+                        learning_status["files_learned"] = False
+                
                 return True
     except Exception as e:
         st.error(f"학습된 문서를 로드하는 중 오류가 발생했습니다: {str(e)}")
@@ -42,16 +54,79 @@ def get_learning_enhanced_prompt(base_prompt, doc_type):
         return base_prompt
     
     enhancement = "\n\n[학습된 문서 가이드라인]:\n"
+    total_content = ""
     
+    # 기존 manual, samples 키 지원
     if learning_status.get("manual") and learned_documents.get('manual', {}).get('content'):
         enhancement += "\n📋 문서작성 가이드라인:\n"
-        enhancement += learned_documents['manual']['content']
+        enhancement += learned_documents['manual']['content'][:2000]  # 2000자로 확장
     
     if learning_status.get("samples") and learned_documents.get('samples', {}).get('content'):
         enhancement += "\n📝 품의서 작성 패턴:\n"
-        enhancement += learned_documents['samples']['content']
+        enhancement += learned_documents['samples']['content'][:2000]  # 2000자로 확장
     
-    enhancement += "\n\n위 가이드라인과 패턴을 참고하여 더욱 전문적이고 완성도 높은 문서를 작성해주세요."
+    # 새로운 files 구조 지원 - 문서 유형별로 관련성 높은 파일 우선 포함
+    if learned_documents.get('files'):
+        relevant_files = []
+        other_files = []
+        
+        for filename, file_data in learned_documents['files'].items():
+            if file_data.get('success') and file_data.get('content'):
+                # 현재 작성 중인 문서 유형과 관련성 체크
+                is_relevant = False
+                if doc_type == '품의서' and ('품의서' in filename or '모음' in filename or '메뉴얼' in filename):
+                    is_relevant = True
+                elif doc_type == '공지문' and ('공지' in filename or '메뉴얼' in filename):
+                    is_relevant = True
+                elif doc_type == '공문' and ('공문' in filename or '메뉴얼' in filename):
+                    is_relevant = True
+                elif doc_type == '비즈니스 이메일' and ('이메일' in filename or 'email' in filename.lower() or '메뉴얼' in filename):
+                    is_relevant = True
+                
+                if is_relevant:
+                    relevant_files.append((filename, file_data))
+                else:
+                    other_files.append((filename, file_data))
+        
+        # 관련 파일을 먼저 포함
+        all_files = relevant_files + other_files
+        
+        if all_files:
+            enhancement += "\n📚 학습된 전문 문서 가이드라인:\n"
+            
+            for filename, file_data in all_files[:5]:  # 최대 5개 파일만 포함
+                # 파일명에서 카테고리 추론
+                if '메뉴얼' in filename or 'manual' in filename.lower():
+                    category = "📋 작성 가이드라인"
+                elif '품의서' in filename or '모음' in filename:
+                    category = "📝 품의서 실제 사례"
+                elif '공지' in filename:
+                    category = "📢 공지문 템플릿"
+                elif '공문' in filename:
+                    category = "📄 공문 양식"
+                elif '이메일' in filename or 'email' in filename.lower():
+                    category = "📧 이메일 양식"
+                else:
+                    category = "📖 참고 문서"
+                
+                enhancement += f"\n{category}:\n"
+                
+                # 내용을 더 길게 포함 (문서 유형 관련성에 따라 조정)
+                content = file_data['content']
+                if filename in [f[0] for f in relevant_files]:
+                    max_length = 3000  # 관련성 높은 파일은 더 길게
+                else:
+                    max_length = 1500  # 일반 파일은 중간 길이
+                
+                if len(content) > max_length:
+                    # 중요한 부분을 보존하기 위해 앞부분과 뒷부분을 포함
+                    front_part = content[:max_length//2]
+                    back_part = content[-(max_length//2):]
+                    content = front_part + "\n...(중간 내용 생략)...\n" + back_part
+                
+                enhancement += content + "\n"
+    
+    enhancement += f"\n\n위의 모든 학습된 가이드라인과 실제 사례를 바탕으로 '{doc_type}' 문서의 전문성과 완성도를 최대한 높여 작성해주세요. 특히 학습된 문서의 구조, 문체, 표현 방식을 참고하여 한국 비즈니스 문서 표준에 맞춰 작성하세요."
     
     return base_prompt + enhancement
 
@@ -529,32 +604,28 @@ if st.session_state.model_password_verified:
 
 st.sidebar.divider()
 
-# 학습 상태 표시
-if learning_status["manual"] or learning_status["samples"]:
-    st.sidebar.success("📚 학습 완료!")
-    
-    # 상세 상태 표시
-    if learning_status["manual"]:
-        manual_info = learned_documents.get('manual', {})
-        source = manual_info.get('source', 'unknown')
-        if source == 'pdf_extracted':
-            st.sidebar.text("✅ 문서작성메뉴얼 (PDF 추출)")
-        else:
-            st.sidebar.text("⚠️ 문서작성메뉴얼 (기본값)")
-    
-    if learning_status["samples"]:
-        samples_info = learned_documents.get('samples', {})
-        source = samples_info.get('source', 'unknown')
-        if source == 'pdf_extracted':
-            st.sidebar.text("✅ 품의서 모음 (PDF 추출)")
-        else:
-            st.sidebar.text("⚠️ 품의서 모음 (기본값)")
-    
-    # 학습 통계 표시
-    summary = learned_documents.get('summary', {})
-    if summary:
-        total_length = summary.get('total_content_length', 0)
-        st.sidebar.caption(f"추출된 텍스트: {total_length:,}자")
+# 학습 상태 표시 (간단하게)
+if learning_status["manual"] or learning_status["samples"] or learned_documents.get('files'):
+    if learned_documents.get('files'):
+        # 새로운 files 구조가 있는 경우
+        files_data = learned_documents.get('files', {})
+        successful_files = [f for f, data in files_data.items() if data.get('success')]
+        total_files = len(files_data)
+        
+        st.sidebar.success("📚 PDF 학습 완료!")
+        st.sidebar.caption(f"총 {total_files}개 파일 중 {len(successful_files)}개 성공")
+        
+        summary = learned_documents.get('summary', {})
+        if summary:
+            total_length = summary.get('total_content_length', 0)
+            st.sidebar.caption(f"학습된 내용: {total_length:,}자")
+    else:
+        # 기존 방식
+        st.sidebar.success("📚 학습 완료!")
+        summary = learned_documents.get('summary', {})
+        if summary:
+            total_length = summary.get('total_content_length', 0)
+            st.sidebar.caption(f"학습된 내용: {total_length:,}자")
     
     learned_at = learned_documents.get('learned_at', '알 수 없음')
     st.sidebar.caption(f"학습 일시: {learned_at}")
@@ -590,49 +661,89 @@ if st.sidebar.button("📚 PDF 문서 학습하기", use_container_width=True):
                 except Exception as e:
                     return f"PDF '{filename}' 읽기 중 오류: {str(e)}"
             
-            # 실제 PDF 파일들 읽기
-            st.info("문서작성메뉴얼.PDF 읽는 중...")
-            manual_content = read_pdf_file('문서작성메뉴얼.PDF')
+            # 폴더에서 모든 PDF 파일 자동 검색
+            import glob
+            pdf_files = glob.glob('*.pdf') + glob.glob('*.PDF')
             
-            st.info("유제욱 품의서 모음.pdf 읽는 중...")
-            samples_content = read_pdf_file('유제욱 품의서 모음.pdf')
+            st.info(f"폴더에서 {len(pdf_files)}개의 PDF 파일을 발견했습니다.")
             
-            # 읽기 결과 확인
-            manual_success = not manual_content.startswith("파일") and not manual_content.startswith("PDF")
-            samples_success = not samples_content.startswith("파일") and not samples_content.startswith("PDF")
-            
-            if not manual_success:
-                st.warning(f"⚠️ 문서작성메뉴얼.PDF: {manual_content}")
-                manual_content = "PDF 파일을 읽을 수 없어 기본 가이드라인을 사용합니다."
-            
-            if not samples_success:
-                st.warning(f"⚠️ 유제욱 품의서 모음.pdf: {samples_content}")
-                samples_content = "PDF 파일을 읽을 수 없어 기본 샘플 패턴을 사용합니다."
-            
-            # 학습 결과 저장
             learned_content = {
-                'manual': {
-                    'filename': '문서작성메뉴얼.PDF',
-                    'content': manual_content,
-                    'source': 'pdf_extracted' if manual_success else 'fallback_guidelines',
-                    'length': len(manual_content),
-                    'success': manual_success
-                },
-                'samples': {
-                    'filename': '유제욱 품의서 모음.pdf', 
-                    'content': samples_content,
-                    'source': 'pdf_extracted' if samples_success else 'fallback_patterns',
-                    'length': len(samples_content),
-                    'success': samples_success
-                },
                 'learned_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 'status': 'learned',
+                'files': {},
                 'summary': {
-                    'manual_extracted': manual_success,
-                    'samples_extracted': samples_success,
-                    'total_content_length': len(manual_content) + len(samples_content)
+                    'total_files': len(pdf_files),
+                    'successful_files': 0,
+                    'failed_files': 0,
+                    'total_content_length': 0
                 }
             }
+            
+            # 각 PDF 파일을 순차적으로 학습
+            for i, pdf_file in enumerate(pdf_files):
+                st.info(f"📖 {pdf_file} 읽는 중... ({i+1}/{len(pdf_files)})")
+                
+                try:
+                    content = read_pdf_file(pdf_file)
+                    
+                    # 읽기 성공 여부 확인
+                    success = not (content.startswith("파일") or content.startswith("PDF") or 
+                                 content.startswith("오류") or len(content.strip()) < 10)
+                    
+                    if success:
+                        learned_content['files'][pdf_file] = {
+                            'filename': pdf_file,
+                            'content': content,
+                            'source': 'pdf_extracted',
+                            'length': len(content),
+                            'success': True
+                        }
+                        learned_content['summary']['successful_files'] += 1
+                        learned_content['summary']['total_content_length'] += len(content)
+                        st.success(f"✅ {pdf_file} 학습 완료 ({len(content):,}자)")
+                    else:
+                        learned_content['files'][pdf_file] = {
+                            'filename': pdf_file,
+                            'content': content,
+                            'source': 'error',
+                            'length': 0,
+                            'success': False
+                        }
+                        learned_content['summary']['failed_files'] += 1
+                        st.warning(f"⚠️ {pdf_file}: {content[:100]}...")
+                        
+                except Exception as e:
+                    learned_content['files'][pdf_file] = {
+                        'filename': pdf_file,
+                        'content': f"처리 중 오류 발생: {str(e)}",
+                        'source': 'error',
+                        'length': 0,
+                        'success': False
+                    }
+                    learned_content['summary']['failed_files'] += 1
+                    st.error(f"❌ {pdf_file} 처리 실패: {str(e)}")
+            
+            # 기존 파일들 호환성 유지 (manual, samples 키 생성)
+            manual_files = [f for f in pdf_files if '메뉴얼' in f or 'manual' in f.lower()]
+            samples_files = [f for f in pdf_files if '품의서' in f or '모음' in f or 'sample' in f.lower()]
+            
+            if manual_files:
+                learned_content['manual'] = learned_content['files'][manual_files[0]]
+            else:
+                learned_content['manual'] = {
+                    'content': "기본 가이드라인을 사용합니다.",
+                    'source': 'fallback_guidelines',
+                    'success': False
+                }
+            
+            if samples_files:
+                learned_content['samples'] = learned_content['files'][samples_files[0]]
+            else:
+                learned_content['samples'] = {
+                    'content': "기본 샘플 패턴을 사용합니다.",
+                    'source': 'fallback_patterns', 
+                    'success': False
+                }
             
             # learned_documents.json 파일로 저장
             with open('learned_documents.json', 'w', encoding='utf-8') as f:
@@ -694,21 +805,7 @@ else:
 
 if not st.session_state.clarifying_questions:
     if openai_available:
-        if learning_status["manual"] or learning_status["samples"]:
-            # 실제 PDF 추출 상태 확인
-            manual_extracted = learned_documents.get('manual', {}).get('source') == 'pdf_extracted'
-            samples_extracted = learned_documents.get('samples', {}).get('source') == 'pdf_extracted'
-            
-            if manual_extracted and samples_extracted:
-                st.markdown("📚 **실제 PDF 문서에서 추출된 가이드라인이 적용됩니다.** 핵심 키워드나 내용을 자유롭게 입력하고, 필요시 참고 파일을 업로드하여 문서 초안을 생성하세요.")
-            elif manual_extracted or samples_extracted:
-                st.markdown("📚 **일부 PDF 문서에서 추출된 가이드라인이 적용됩니다.** 핵심 키워드나 내용을 자유롭게 입력하고, 필요시 참고 파일을 업로드하여 문서 초안을 생성하세요.")
-                st.warning("⚠️ 일부 PDF 파일을 읽을 수 없어 기본 가이드라인을 사용 중입니다.")
-            else:
-                st.markdown("📚 **기본 가이드라인이 적용됩니다.** 핵심 키워드나 내용을 자유롭게 입력하고, 필요시 참고 파일을 업로드하여 문서 초안을 생성하세요.")
-                st.warning("⚠️ PDF 파일들을 읽을 수 없어 기본 가이드라인을 사용 중입니다. Streamlit Cloud 환경에서는 로컬 파일 접근이 제한될 수 있습니다.")
-        else:
-            st.markdown("핵심 키워드나 내용을 자유롭게 입력하고, 필요시 참고 파일을 업로드하여 문서 초안을 생성하세요.")
+        if not (learning_status["manual"] or learning_status["samples"] or learned_documents.get('files')):
             st.info("💡 **팁**: 사이드바에서 'PDF 문서 학습하기'를 클릭하면 더욱 전문적인 문서를 생성할 수 있습니다.")
     else:
         st.markdown("현재 AI 기능이 비활성화되어 있습니다. OpenAI API 키를 설정하면 자동 문서 생성 기능을 사용할 수 있습니다.")
