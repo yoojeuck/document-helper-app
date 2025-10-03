@@ -705,23 +705,34 @@ if st.sidebar.button("📚 PDF 문서 학습하기", use_container_width=True):
                 """PDF 파일을 읽어서 텍스트를 추출합니다."""
                 try:
                     if not os.path.exists(filename):
-                        return f"파일 '{filename}'을 찾을 수 없습니다."
+                        return f"파일 '{filename}'을 찾을 수 없습니다.", False
+                    
+                    # PyPDF2 import 확인
+                    try:
+                        import PyPDF2
+                    except ImportError:
+                        return f"PyPDF2 모듈을 찾을 수 없습니다. PDF 읽기 기능이 비활성화됩니다.", False
                     
                     with open(filename, 'rb') as file:
                         pdf_reader = PyPDF2.PdfReader(file)
                         text = ""
-                        for page in pdf_reader.pages:
-                            page_text = page.extract_text()
-                            if page_text:
-                                text += page_text + "\n"
+                        page_count = len(pdf_reader.pages)
+                        
+                        for i, page in enumerate(pdf_reader.pages):
+                            try:
+                                page_text = page.extract_text()
+                                if page_text:
+                                    text += page_text + "\n"
+                            except Exception as page_error:
+                                st.warning(f"⚠️ {filename} 페이지 {i+1} 읽기 실패: {str(page_error)}")
                         
                         if not text.strip():
-                            return f"PDF '{filename}'에서 텍스트를 추출할 수 없습니다."
+                            return f"PDF '{filename}'에서 텍스트를 추출할 수 없습니다. (총 {page_count}페이지)", False
                         
-                        return text.strip()
+                        return text.strip(), True
                         
                 except Exception as e:
-                    return f"PDF '{filename}' 읽기 중 오류: {str(e)}"
+                    return f"PDF '{filename}' 읽기 중 오류: {str(e)}", False
             
             # 폴더에서 모든 PDF 파일 자동 검색
             import glob
@@ -746,11 +757,7 @@ if st.sidebar.button("📚 PDF 문서 학습하기", use_container_width=True):
                 st.info(f"📖 {pdf_file} 읽는 중... ({i+1}/{len(pdf_files)})")
                 
                 try:
-                    content = read_pdf_file(pdf_file)
-                    
-                    # 읽기 성공 여부 확인
-                    success = not (content.startswith("파일") or content.startswith("PDF") or 
-                                 content.startswith("오류") or len(content.strip()) < 10)
+                    content, success = read_pdf_file(pdf_file)
                     
                     if success:
                         learned_content['files'][pdf_file] = {
@@ -772,7 +779,7 @@ if st.sidebar.button("📚 PDF 문서 학습하기", use_container_width=True):
                             'success': False
                         }
                         learned_content['summary']['failed_files'] += 1
-                        st.warning(f"⚠️ {pdf_file}: {content[:100]}...")
+                        st.error(f"❌ {pdf_file}: {content[:100]}...")
                         
                 except Exception as e:
                     learned_content['files'][pdf_file] = {
@@ -807,16 +814,36 @@ if st.sidebar.button("📚 PDF 문서 학습하기", use_container_width=True):
                     'success': False
                 }
             
-            # learned_documents.json 파일로 저장
-            with open('learned_documents.json', 'w', encoding='utf-8') as f:
-                json.dump(learned_content, f, ensure_ascii=False, indent=2)
+            # 학습 결과 확인 및 저장
+            successful_files = learned_content['summary']['successful_files']
+            total_files = learned_content['summary']['total_files']
             
-            # 학습 완료 후 다시 로드
-            if load_learned_documents():
-                st.sidebar.success("✅ PDF 학습이 완료되었습니다!")
-                st.rerun()
+            if successful_files > 0:
+                # 성공한 파일이 있는 경우에만 저장
+                with open('learned_documents.json', 'w', encoding='utf-8') as f:
+                    json.dump(learned_content, f, ensure_ascii=False, indent=2)
+                
+                st.success(f"📚 PDF 학습 완료! 총 {total_files}개 파일 중 {successful_files}개 성공")
+                st.info(f"학습된 내용: {learned_content['summary']['total_content_length']:,}자")
+                st.info(f"학습 일시: {learned_content['learned_at']}")
+                
+                # 학습 완료 후 다시 로드
+                if load_learned_documents():
+                    st.sidebar.success("✅ PDF 학습이 완료되었습니다!")
+                    st.rerun()
+                else:
+                    st.sidebar.error("❌ 학습 결과를 로드할 수 없습니다.")
             else:
-                st.sidebar.error("❌ 학습 결과를 로드할 수 없습니다.")
+                # 성공한 파일이 없는 경우
+                st.error(f"❌ PDF 학습 실패! 총 {total_files}개 파일 모두 읽기 실패")
+                st.warning("PyPDF2 모듈이나 PDF 파일에 문제가 있을 수 있습니다.")
+                
+                # 실패 상세 정보 표시
+                for pdf_file, file_data in learned_content['files'].items():
+                    if not file_data['success']:
+                        st.error(f"📄 {pdf_file}: {file_data['content'][:200]}...")
+                
+                st.info("💡 해결 방법: requirements.txt에 PyPDF2가 포함되어 있는지 확인하고, Streamlit을 재시작해보세요.")
                 
     except Exception as e:
         st.sidebar.error(f"❌ 학습 실행 중 오류: {str(e)}")
