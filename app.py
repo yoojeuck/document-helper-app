@@ -71,7 +71,14 @@ def reset_learning_data():
 # 앱 시작 시 학습된 문서 로드
 load_learned_documents()
 
-# --- AI 설정 (OpenAI GPT-4o mini 사용) ---
+# --- 모델 설정 관리 ---
+if 'selected_model' not in st.session_state:
+    st.session_state.selected_model = "gpt-4o-mini"
+
+if 'model_password_verified' not in st.session_state:
+    st.session_state.model_password_verified = False
+
+# --- AI 설정 ---
 client = None
 openai_available = False
 
@@ -97,7 +104,7 @@ def get_ai_response(system_prompt, user_prompt):
         
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=st.session_state.selected_model,
             response_format={"type": "json_object"},
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -457,6 +464,70 @@ doc_type = st.sidebar.radio("작성할 문서의 종류를 선택하세요.", ('
 # --- 설정 섹션 ---
 st.sidebar.divider()
 st.sidebar.title("⚙️ 설정")
+
+# AI 모델 선택
+st.sidebar.subheader("🤖 AI 모델 설정")
+current_model = st.session_state.selected_model
+st.sidebar.info(f"현재 모델: **{current_model}**")
+
+# 모델 비용 정보 표시
+model_costs = {
+    "gpt-4o-mini": "💚 저렴 (기본)",
+    "gpt-4o": "💰 비쌈 (고성능)",
+    "gpt-4-turbo": "💸 매우 비쌈", 
+    "gpt-3.5-turbo": "💚 매우 저렴"
+}
+st.sidebar.caption(f"비용: {model_costs.get(current_model, '알 수 없음')}")
+
+# 모델 변경 요청 처리
+if st.sidebar.button("🔧 모델 변경하기", use_container_width=True):
+    if not st.session_state.model_password_verified:
+        # 비밀번호 입력 상태로 변경
+        if 'show_password_input' not in st.session_state:
+            st.session_state.show_password_input = True
+        else:
+            st.session_state.show_password_input = not st.session_state.show_password_input
+
+# 비밀번호 입력 화면
+if st.session_state.get('show_password_input', False) and not st.session_state.model_password_verified:
+    password = st.sidebar.text_input("🔐 비밀번호 입력", type="password", placeholder="모델 변경 비밀번호")
+    
+    col1, col2 = st.sidebar.columns(2)
+    with col1:
+        if st.button("확인", use_container_width=True):
+            if password == "admin123":  # 비밀번호를 여기서 설정 (변경 가능)
+                st.session_state.model_password_verified = True
+                st.session_state.show_password_input = False
+                st.sidebar.success("✅ 인증 성공!")
+                st.rerun()
+            else:
+                st.sidebar.error("❌ 잘못된 비밀번호입니다.")
+    
+    with col2:
+        if st.button("취소", use_container_width=True):
+            st.session_state.show_password_input = False
+            st.rerun()
+
+# 인증된 경우 모델 선택 표시
+if st.session_state.model_password_verified:
+    st.sidebar.subheader("모델 선택")
+    new_model = st.sidebar.selectbox(
+        "사용할 모델을 선택하세요:",
+        ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"],
+        index=["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"].index(current_model)
+    )
+    
+    if st.sidebar.button("💾 모델 저장", use_container_width=True):
+        st.session_state.selected_model = new_model
+        st.session_state.model_password_verified = False
+        st.sidebar.success(f"✅ 모델이 **{new_model}**로 변경되었습니다!")
+        st.rerun()
+    
+    if st.sidebar.button("❌ 취소", use_container_width=True):
+        st.session_state.model_password_verified = False
+        st.rerun()
+
+st.sidebar.divider()
 
 # 학습 상태 표시
 if learning_status["manual"] or learning_status["samples"]:
