@@ -232,9 +232,9 @@ def generate_ai_draft(doc_type, context_keywords, file_context=""):
     # 기본 프롬프트를 학습된 내용으로 강화
     base_prompts = {
         "품의서": "당신은 한국의 '주식회사 몬쉘코리아' 소속의 유능한 사원입니다. 품의서 초안을 생성합니다. **절대 규칙**: 'body' 필드는 반드시 다음 형식으로 작성하세요:\n\n1. 첫 번째 주요 항목\n  1) 세부 사항\n    (1) 구체적 내용\n  2) 추가 세부 사항\n2. 두 번째 주요 항목\n  1) 세부 사항\n\n이런 식으로 `1.`, `  1)`, `    (1)` 구분기호를 의무적으로 사용하여 체계적으로 작성하세요. 절대로 구분기호 없이 단순 문장 나열하지 마세요. 문장 종결어미는 `...함.`, `...요청함.` 형태로 하고, 각 문장 마침표 후 줄바꿈하세요. \n\n**중요**: 'items' 필드는 사용자가 제공한 키워드에서 표로 정리할 수 있는 구체적인 데이터가 있을 때만 생성하세요. 예를 들어:\n- 구매 품목: 항목명, 수량, 단가, 총액 등\n- 직급별 지원금액: 직급/근속기간, 지원금액, 조건 등\n- 교육과정: 과정명, 대상, 기간, 비용 등\n- 예산계획: 항목, 예산액, 비율, 비고 등\n\n사용자 키워드를 분석하여 위와 같은 구조화된 정보가 있으면 반드시 해당 내용으로 표를 만드세요. 예시:\n키워드에 '리더 5만원, 파트장 10만원, 팀장 20만원'이 있다면:\n[{\"직급/조건\": \"근속 3년이상 리더\", \"지원금액\": \"50,000원\", \"비고\": \"월 지급\"}, {\"직급/조건\": \"근속 3년이상 파트장\", \"지원금액\": \"100,000원\", \"비고\": \"월 지급\"}]\n\n표로 만들 적절한 데이터가 없다면 items 필드는 빈 배열 []로 설정하고, 모든 내용을 body에 텍스트로 작성하세요. 절대로 사용자 키워드와 무관한 예시 데이터를 사용하지 마세요. 응답은 `title`, `purpose`, `body`, `items`, `remarks` JSON 형식입니다.",
-        "공지문": "당신은 한국 기업의 사내 커뮤니케이션 담당자입니다. 키워드와 첨부파일 내용을 바탕으로 '사내 공지문' 초안을 생성합니다. 'details' 필드에는 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하는 번호 매기기를 사용하고, 각 문장의 마침표 후에는 반드시 줄바꿈을 해주세요. 문장과 문장 사이는 개행으로 구분해야 합니다. details는 하나의 연속된 텍스트 문자열이어야 하며, JSON 객체가 아닌 일반 문자열로 작성해주세요. 응답은 'title', 'target', 'summary', 'details', 'contact' key를 포함하는 JSON 형식이어야 합니다.",
-        "공문": "당신은 대외 문서를 담당하는 총무팀 직원입니다. 키워드와 첨부파일 내용을 바탕으로 격식에 맞는 '공문' 초안을 생성합니다. 본문 작성 시 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하고, 각 문장의 마침표 후에는 줄바꿈을 해주세요. 응답은 'sender_org', 'receiver', 'cc', 'title', 'body', 'sender_name' key를 포함하는 JSON 형식이어야 합니다.",
-        "비즈니스 이메일": "당신은 비즈니스 커뮤니케이션 전문가입니다. 키워드와 첨부파일 내용을 바탕으로 전문적인 '비즈니스 이메일' 초안을 생성합니다. 본문 작성 시 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하고, 각 문장의 마침표 후에는 줄바꿈을 해주세요. 응답은 `subject`, `body`, `closing` key를 포함하는 JSON 형식이어야 합니다. `closing`에는 회사명, 연락처, 이메일 주소 등의 서명 정보를 포함하지 마세요. 단순히 인사말이나 마무리 문구만 포함하세요."
+        "공지문": "당신은 한국 기업의 사내 커뮤니케이션 담당자입니다. 키워드와 첨부파일 내용을 바탕으로 '사내 공지문' 초안을 생성합니다. 'details' 필드에는 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하는 번호 매기기를 사용하고, 각 문장의 마침표 후에는 반드시 줄바꿈을 해주세요. \n\n**표 생성 규칙**: 사용자 키워드에 표로 정리하면 효과적인 정보가 있다면 'items' 필드를 추가하세요. 예를 들어:\n- 일정표: 날짜, 시간, 내용, 장소\n- 교육과정: 과정명, 대상, 기간, 신청방법\n- 혜택/제도: 대상, 지원내용, 조건, 신청기한\n- 변경사항: 기존, 변경후, 시행일, 비고\n\n표가 필요한 데이터가 있으면 items 필드에 배열로 포함하고, 없으면 생략하세요. 응답은 'title', 'target', 'summary', 'details', 'contact' key와 필요시 'items' key를 포함하는 JSON 형식이어야 합니다.",
+        "공문": "당신은 대외 문서를 담당하는 총무팀 직원입니다. 키워드와 첨부파일 내용을 바탕으로 격식에 맞는 '공문' 초안을 생성합니다. 본문 작성 시 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하고, 각 문장의 마침표 후에는 줄바꿈을 해주세요. \n\n**표 생성 규칙**: 사용자 키워드에 표로 정리하면 효과적인 정보가 있다면 'items' 필드를 추가하세요. 예를 들어:\n- 행사일정: 일시, 장소, 내용, 참석대상\n- 제출서류: 서류명, 제출기한, 제출처, 비고\n- 협력요청: 항목, 요청사항, 기한, 담당부서\n- 비용내역: 항목, 금액, 용도, 비고\n\n표가 필요한 데이터가 있으면 items 필드에 배열로 포함하고, 없으면 생략하세요. 응답은 'sender_org', 'receiver', 'cc', 'title', 'body', 'sender_name' key와 필요시 'items' key를 포함하는 JSON 형식이어야 합니다.",
+        "비즈니스 이메일": "당신은 비즈니스 커뮤니케이션 전문가입니다. 키워드와 첨부파일 내용을 바탕으로 전문적인 '비즈니스 이메일' 초안을 생성합니다. 본문 작성 시 `1.`, `  1)`, `    (1)` 의 위계질서를 준수하고, 각 문장의 마침표 후에는 줄바꿈을 해주세요. \n\n**표 생성 규칙**: 사용자 키워드에 표로 정리하면 효과적인 정보가 있다면 'items' 필드를 추가하세요. 예를 들어:\n- 미팅일정: 날짜, 시간, 안건, 참석자\n- 견적서: 항목, 수량, 단가, 금액\n- 업무일정: 업무명, 담당자, 기한, 상태\n- 제품정보: 제품명, 사양, 가격, 배송일\n\n표가 필요한 데이터가 있으면 items 필드에 배열로 포함하고, 없으면 생략하세요. 응답은 `subject`, `body`, `closing` key와 필요시 'items' key를 포함하는 JSON 형식이어야 합니다. `closing`에는 회사명, 연락처, 이메일 주소 등의 서명 정보를 포함하지 마세요. 단순히 인사말이나 마무리 문구만 포함하세요."
     }
     
     # 학습된 내용으로 프롬프트 강화
@@ -493,6 +493,24 @@ def generate_docx(draft_data, doc_type, signature_data={}):
         doc.add_paragraph(f"핵심 요약: {draft_data.get('summary', '')}")
         doc.add_paragraph("-" * 30)
         doc.add_paragraph(clean_text(draft_data.get('details', '')))
+        
+        # 표 데이터 추가
+        if "items" in draft_data and draft_data["items"]:
+            try:
+                df = pd.DataFrame(draft_data["items"])
+                if not df.empty:
+                    doc.add_paragraph("")  # 빈 줄 추가
+                    table = doc.add_table(rows=1, cols=len(df.columns), style='Table Grid')
+                    hdr_cells = table.rows[0].cells
+                    for i, col_name in enumerate(df.columns): 
+                        hdr_cells[i].text = col_name
+                    for _, row in df.iterrows():
+                        row_cells = table.add_row().cells
+                        for i, col_name in enumerate(df.columns): 
+                            row_cells[i].text = str(row[col_name])
+            except Exception as e:
+                doc.add_paragraph(f"표 생성 중 오류: {str(e)}")
+                
         doc.add_paragraph(f"\n문의: {draft_data.get('contact', '')}")
     elif doc_type == '공문':
         h = doc.add_heading("공 식 문 서", level=1); h.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -502,6 +520,24 @@ def generate_docx(draft_data, doc_type, signature_data={}):
         doc.add_paragraph("-" * 30)
         doc.add_paragraph(f"제목: {draft_data.get('title', '')}")
         doc.add_paragraph(clean_text(draft_data.get('body', '')))
+        
+        # 표 데이터 추가
+        if "items" in draft_data and draft_data["items"]:
+            try:
+                df = pd.DataFrame(draft_data["items"])
+                if not df.empty:
+                    doc.add_paragraph("")  # 빈 줄 추가
+                    table = doc.add_table(rows=1, cols=len(df.columns), style='Table Grid')
+                    hdr_cells = table.rows[0].cells
+                    for i, col_name in enumerate(df.columns): 
+                        hdr_cells[i].text = col_name
+                    for _, row in df.iterrows():
+                        row_cells = table.add_row().cells
+                        for i, col_name in enumerate(df.columns): 
+                            row_cells[i].text = str(row[col_name])
+            except Exception as e:
+                doc.add_paragraph(f"표 생성 중 오류: {str(e)}")
+        
         p = doc.add_paragraph(f"\n\n{draft_data.get('sender_name', '')}"); p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     elif doc_type == '비즈니스 이메일':
         doc.add_paragraph(f"받는 사람: {signature_data.get('recipient_name', '')} {signature_data.get('recipient_title', '')}")
@@ -512,6 +548,24 @@ def generate_docx(draft_data, doc_type, signature_data={}):
         doc.add_paragraph(f"{signature_data.get('signature_name', '')} {signature_data.get('signature_title', '')}입니다.")
         doc.add_paragraph() 
         doc.add_paragraph(clean_text(draft_data.get('body', '')))
+        
+        # 표 데이터 추가
+        if "items" in draft_data and draft_data["items"]:
+            try:
+                df = pd.DataFrame(draft_data["items"])
+                if not df.empty:
+                    doc.add_paragraph("")  # 빈 줄 추가
+                    table = doc.add_table(rows=1, cols=len(df.columns), style='Table Grid')
+                    hdr_cells = table.rows[0].cells
+                    for i, col_name in enumerate(df.columns): 
+                        hdr_cells[i].text = col_name
+                    for _, row in df.iterrows():
+                        row_cells = table.add_row().cells
+                        for i, col_name in enumerate(df.columns): 
+                            row_cells[i].text = str(row[col_name])
+            except Exception as e:
+                doc.add_paragraph(f"표 생성 중 오류: {str(e)}")
+        
         doc.add_paragraph(clean_text(draft_data.get('closing', '')))
     bio = io.BytesIO()
     doc.save(bio)
@@ -1176,17 +1230,50 @@ if draft:
         elif doc_type == '공지문':
             draft = g_data
             context = { "title": draft["title"], "target": draft["target"], "summary": text_to_html(draft["summary"]), "details": text_to_html(draft["details"]), "contact": draft["contact"], "generation_date": datetime.now().strftime('%Y. %m. %d.') }
+            
+            # 표 데이터가 있으면 추가
+            if draft.get("items"):
+                try:
+                    items_data = draft.get("items", [])
+                    if isinstance(items_data, list) and len(items_data) > 0 and isinstance(items_data[0], dict):
+                        context["table_headers"] = list(items_data[0].keys())
+                        context["items"] = items_data
+                except Exception as e:
+                    st.warning(f"⚠️ 공지문 표 데이터 처리 중 문제: {str(e)}")
+            
             template = load_template('gongji_template.html')
             st.session_state[html_key] = generate_html(template, context)
         elif doc_type == '공문':
             draft = gm_data
             context = { "sender_org": draft["sender_org"], "receiver": draft["receiver"], "cc": draft["cc"], "title": draft["title"], "body": text_to_html(draft["body"]), "sender_name": draft["sender_name"], "generation_date": datetime.now().strftime('%Y. %m. %d.') }
+            
+            # 표 데이터가 있으면 추가
+            if draft.get("items"):
+                try:
+                    items_data = draft.get("items", [])
+                    if isinstance(items_data, list) and len(items_data) > 0 and isinstance(items_data[0], dict):
+                        context["table_headers"] = list(items_data[0].keys())
+                        context["items"] = items_data
+                except Exception as e:
+                    st.warning(f"⚠️ 공문 표 데이터 처리 중 문제: {str(e)}")
+            
             template = load_template('gongmun_template.html')
             st.session_state[html_key] = generate_html(template, context)
         elif doc_type == '비즈니스 이메일':
             draft = {**e_data, **signature_data}
             context = draft.copy()
             context["signature_company"] = "주식회사 몬쉘코리아"
+            
+            # 표 데이터가 있으면 추가
+            if e_data.get("items"):
+                try:
+                    items_data = e_data.get("items", [])
+                    if isinstance(items_data, list) and len(items_data) > 0 and isinstance(items_data[0], dict):
+                        context["table_headers"] = list(items_data[0].keys())
+                        context["items"] = items_data
+                except Exception as e:
+                    st.warning(f"⚠️ 이메일 표 데이터 처리 중 문제: {str(e)}")
+            
             template = load_template('email_template_v2.html')
             st.session_state[html_key] = generate_html(template, context)
 
