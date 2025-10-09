@@ -879,7 +879,7 @@ for key, default_value in state_defaults.items():
         st.session_state[key] = default_value
 
 if openai_available:
-    st.title(f"✍️ AI {doc_type} 자동 생성")
+    st.title(f"✍️ {doc_type} 작성 가이드")
     col1, col2 = st.columns([3, 1])
     with col1:
         st.success("🤖 AI 기능이 활성화되었습니다!")
@@ -1462,3 +1462,4 @@ if st.session_state.get(html_key):
         with col2:
             docx_output = generate_docx(draft, doc_type, signature_data)
             st.download_button(label="📄 Word 파일로 다운로드", data=docx_output, file_name=f"{title_for_file}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
+
