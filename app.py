@@ -471,7 +471,7 @@ def generate_docx(draft_data, doc_type, signature_data={}):
     if doc_type == '품의서':
         h = doc.add_heading(draft_data.get('title', '제목 없음'), level=1); h.alignment = WD_ALIGN_PARAGRAPH.CENTER
         doc.add_paragraph(clean_text(draft_data.get('purpose', '')))
-        doc.add_paragraph("- 아 래 -").alignment = WD_ALIGN_PARAGRAPH.CENTER
+        doc.add_paragraph("- 아                   래 -").alignment = WD_ALIGN_PARAGRAPH.CENTER
         doc.add_heading("1. 상세 내역", level=2)
         
         # 텍스트 내용 먼저 추가
@@ -1463,5 +1463,6 @@ if st.session_state.get(html_key):
         with col2:
             docx_output = generate_docx(draft, doc_type, signature_data)
             st.download_button(label="📄 Word 파일로 다운로드", data=docx_output, file_name=f"{title_for_file}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
+
 
 
