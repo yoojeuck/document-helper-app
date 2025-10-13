@@ -1020,9 +1020,9 @@ if not st.session_state.clarifying_questions:
     with st.expander("효과적인 키워드 작성 팁"):
         st.markdown("""
         **좋은 키워드 예시:**
-        - "마케팅팀 노트북 10대 구매, 예산 500만원, 2024년 4분기 지급"
-        - "신입사원 원격근무 제도 도입, 2025년 1월부터 시행"
-        - "고객서비스 운영시간 연장, 평일 21시까지, 인력 증원 필요"
+        - "영업팀 노트북 10대 구매, 예산 500만원, 2025년 4분기 지급"
+        - "신입사원 입문교육 제도 도입, 2026년 1월부터 시행"
+        - "제품 할인 프로모션 진행, 2025년 11월 1일 ~ 2025년 11월 14일, 대상매장 선정, 품목 정리 및 할인율 정리"
         
         **피해야 할 키워드:**
         - 너무 간단: "노트북 구매"
@@ -1462,4 +1462,5 @@ if st.session_state.get(html_key):
         with col2:
             docx_output = generate_docx(draft, doc_type, signature_data)
             st.download_button(label="📄 Word 파일로 다운로드", data=docx_output, file_name=f"{title_for_file}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
+
 
