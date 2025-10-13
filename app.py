@@ -1122,25 +1122,25 @@ if draft:
                             st.warning(f"⚠️ AI 생성 표 데이터에 문제가 있어 기본 형식을 사용합니다: {str(e)}")
                             # 기본 구조로 대체
                             default_items = [
-                                {"항목": "노트북", "수량": "10", "단가": "500,000", "금액": "5,000,000", "비고": "마케팅팀용"}
+                                {"항목": "노트북", "수량": "10", "단가": "500,000", "금액": "5,000,000", "비고": "영업팀용"}
                             ]
                             p_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic")
                     else:
                         # 데이터 형식이 올바르지 않은 경우
                         default_items = [
-                            {"항목": "노트북", "수량": "10", "단가": "500,000", "금액": "5,000,000", "비고": "마케팅팀용"}
+                            {"항목": "노트북", "수량": "10", "단가": "500,000", "금액": "5,000,000", "비고": "영업팀용"}
                         ]
                         p_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic")
                 else:
                     # 빈 데이터인 경우
                     default_items = [
-                        {"항목": "노트북", "수량": "10", "단가": "500,000", "금액": "5,000,000", "비고": "마케팅팀용"}
+                        {"항목": "노트북", "수량": "10", "단가": "500,000", "금액": "5,000,000", "비고": "영업팀용"}
                     ]
                     p_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic")
             else:
                 # 표가 없는 경우 기본 구조 제공
                 default_items = [
-                    {"항목": "노트북", "수량": "10", "단가": "500,000", "금액": "5,000,000", "비고": "마케팅팀용"}
+                    {"항목": "노트북", "수량": "10", "단가": "500,000", "금액": "5,000,000", "비고": "영업팀용"}
                 ]
                 p_data["df_edited"] = st.data_editor(pd.DataFrame(default_items), num_rows="dynamic")
         except Exception as e:
@@ -1315,7 +1315,7 @@ if draft:
         with st.expander("내 서명 정보 입력/수정"):
             signature_data["signature_name"] = st.text_input("이름", value="홍길동")
             signature_data["signature_title"] = st.text_input("직책", value="대리")
-            signature_data["signature_team"] = st.text_input("부서/팀", value="마케팅팀")
+            signature_data["signature_team"] = st.text_input("부서/팀", value="총무팀")
             signature_data["signature_phone"] = st.text_input("연락처", value="010-1234-5678")
         preview_button = st.button("이메일 본문 생성", use_container_width=True)
     
@@ -1462,5 +1462,6 @@ if st.session_state.get(html_key):
         with col2:
             docx_output = generate_docx(draft, doc_type, signature_data)
             st.download_button(label="📄 Word 파일로 다운로드", data=docx_output, file_name=f"{title_for_file}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
+
 
 
